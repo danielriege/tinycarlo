@@ -1,8 +1,10 @@
 import math
-
+import cv2
 import numpy as np
 import gym
-
+from  tinycarlo.renderer import Renderer
+from tinycarlo.car import Car
+from  tinycarlo.track import Track
 
 class TinyCarloEnv(gym.Env):
     def __init__(self):
@@ -11,41 +13,43 @@ class TinyCarloEnv(gym.Env):
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=(100, 200), dtype=np.uint8
         )
+        self.done = False
 
-        self.wheelbase = 0.15
-        self.mass = 0.2
+        self.wheelbase = 160 # in mm
+        self.track_width = 100 # in mm
+        self.mass = 6
+        self.T = 0.033
+
+        self.car = Car(self.track_width, self.wheelbase, self.T)
+        self.track = Track()
+
+        self.renderer = Renderer(self.track, self.car)
 
         self.reset()
-
-    def simulate_step(self, fwd_vel, steering_angle):
-        dt = 1
-
-        ang_vel = (math.tan(steering_angle) / self.wheelbase) * fwd_vel
-
-        vx = fwd_vel * math.cos(self.car_rotation)
-        vy = fwd_vel * math.sin(self.car_rotation)
-
-        dx = (vx * math.cos(self.car_rotation) - vy * math.sin(self.car_rotation)) * dt
-        dy = (vx * math.sin(self.car_rotation) + vy * math.cos(self.car_rotation)) * dt
-        dyaw = ang_vel * dt
-
-        self.car_position[0] += dx
-        self.car_position[1] += dy
-        self.car_rotation += dyaw
+    
+    def set_fps(self, fps):
+        self.T = 1/fps
 
     def step(self, action):
         observation = None
         reward = 0
-        done = False
         info = None
 
-        self.simulate_step(*action)
+        self.car.step(*action)
 
-        return observation, reward, done, info
+        return observation, reward, self.done, info
 
     def reset(self):
-        self.car_position = np.zeros((2,))
-        self.car_rotation = 0.0
+        self.car.reset()
 
     def render(self, mode="human", close=False):
-        pass
+        overview = self.renderer.render_overview()
+        overview = cv2.resize(overview, (overview.shape[1]//3, overview.shape[0]//3))
+        cv2.imshow('Overview', overview)
+
+        if cv2.waitKey(int(self.T*1000)) & 0xFF == ord('q'):
+            self.close()
+            self.done = True
+
+    def close(self):
+        cv2.destroyAllWindows()

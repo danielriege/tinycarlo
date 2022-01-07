@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 gym = "*"
 numpy = "*"
+setuptools = "*"
+opencv-python = "*"
 
 [dev-packages]
 black = "==21.12b0"
