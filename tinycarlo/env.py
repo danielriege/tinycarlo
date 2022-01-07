@@ -35,19 +35,20 @@ class TinyCarloEnv(gym.Env):
         self.T = 1/fps
 
     def step(self, action):
-        observation = self.camera.capture_frame()
+        self.observation = self.camera.capture_frame()
         reward = 0
         info = None
 
         self.car.step(*action)
 
-        return observation, reward, self.done, info
+        return self.observation, reward, self.done, info
 
     def reset(self):
         self.car.reset()
+        self.observation = self.renderer.render_overview()
 
     def render(self, mode="human", close=False):
-        camera_view = self.camera.capture_frame()
+        camera_view = self.observation # observation is rendered camera view
 
         overview = self.renderer.render_overview()
         overview = cv2.resize(overview, (overview.shape[1]//3, overview.shape[0]//3))
