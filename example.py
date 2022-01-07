@@ -3,8 +3,7 @@
 import gym
 import tinycarlo
 
-env = gym.make("tinycarlo-v0")
-env.set_fps(30)
+env = gym.make("tinycarlo-v0", fps=60)
 observation = env.reset()
 while True:
     env.render()
