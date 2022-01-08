@@ -28,6 +28,8 @@ class TinyCarloEnv(gym.Env):
             low=0.0, high=1.0, shape=self.camera_resolution + (3,), dtype=np.float32
         )
         self.done = False
+        self.reward_sum = 0
+        self.step_cnt = 0
 
         self.reward_handler = RewardHandler(reward_red='done', reward_green=-10, reward_tick=1)
 
@@ -41,6 +43,7 @@ class TinyCarloEnv(gym.Env):
         self.reset()
 
     def step(self, action):
+        self.step_cnt += 1
         self.car.step(*action)
 
         # generate new transformed track with car position in center
@@ -53,6 +56,8 @@ class TinyCarloEnv(gym.Env):
         if reward == 'done':
             reward = 0
             self.done = True
+        else:
+            self.reward_sum += reward
         info = None
 
         return self.observation, reward, self.done, info
@@ -65,7 +70,7 @@ class TinyCarloEnv(gym.Env):
         start = time.time()
         camera_view = self.observation # observation is rendered camera view
 
-        overview = self.renderer.render_overview(self.loop_time)
+        overview = self.renderer.render_overview(self.loop_time, self.reward_sum, self.step_cnt)
         overview = cv2.resize(overview, (overview.shape[1]//3, overview.shape[0]//3))
 
         cv2.imshow('Overview', overview)
