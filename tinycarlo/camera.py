@@ -4,6 +4,7 @@ import cv2
 
 class Camera():
     def __init__(self, track, car, resolution):
+        self.track = track
         self.track_image = track.get_track()
         self.car = car
         self.resolution = resolution
@@ -15,13 +16,7 @@ class Camera():
         self.y2 = self.y1 - self.resolution[1]
     
     def capture_frame(self):
-        alpha = math.degrees(self.car.rotation)+90
-        R_M = np.concatenate((cv2.getRotationMatrix2D((self.cols//2, self.rows//2),alpha,1), np.array([[0,0,1]])))
-        T_M = np.float32([ [1,0,self.cols//2-self.car.position[0]], [0,1,self.rows//2-self.car.position[1]] , [0,0,1]])
-        
-        M = R_M @ T_M
-        transformed = cv2.warpAffine(self.track_image,M[:-1,:], (self.cols, self.rows))
-    
+        transformed = self.track.get_transformed()
         croped = transformed[self.y2:self.y1,self.x1:self.x2,:]
         return croped
     

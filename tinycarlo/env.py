@@ -8,6 +8,7 @@ from  tinycarlo.renderer import Renderer
 from tinycarlo.car import Car
 from  tinycarlo.track import Track
 from tinycarlo.camera import Camera
+from tinycarlo.reward_handler import RewardHandler
 
 class TinyCarloEnv(gym.Env):
     def __init__(self, fps=30):
@@ -28,8 +29,10 @@ class TinyCarloEnv(gym.Env):
         )
         self.done = False
 
-        self.car = Car(self.track_width, self.wheelbase, self.T)
+        self.reward_handler = RewardHandler(reward_red='done', reward_green=-10, reward_tick=1)
+
         self.track = Track()
+        self.car = Car(self.track, self.track_width, self.wheelbase, self.T)
 
         self.camera = Camera(self.track, self.car, self.camera_resolution)
         self.renderer = Renderer(self.track, self.car, [self.camera])
@@ -38,11 +41,19 @@ class TinyCarloEnv(gym.Env):
         self.reset()
 
     def step(self, action):
-        self.observation = self.camera.capture_frame()
-        reward = 0
-        info = None
-
         self.car.step(*action)
+
+        # generate new transformed track with car position in center
+        self.track.transform(self.car.position, self.car.rotation)
+
+        self.observation = self.camera.capture_frame()
+        colission = self.car.check_colission()
+        # calculate reward
+        reward = self.reward_handler.tick(colission)
+        if reward == 'done':
+            reward = 0
+            self.done = True
+        info = None
 
         return self.observation, reward, self.done, info
 

@@ -3,7 +3,8 @@ import numpy as np
 import cv2
 
 class Car():
-    def __init__(self, track_width, wheelbase, T):
+    def __init__(self, track, track_width, wheelbase, T):
+        self.track = track
         self.track_width = track_width
         self.wheelbase = wheelbase
         self.T = T
@@ -56,6 +57,27 @@ class Car():
         R_M = np.array([[math.cos(self.rotation), -math.sin(self.rotation),0],[math.sin(self.rotation), math.cos(self.rotation),0], [0,0,1]])
         T_M = np.array([[1,0,self.position[0]], [0,1,self.position[1]], [0,0,1]])
         return T_M @ R_M
+    
+    def check_colission(self):
+        '''
+        Checks for colissions with road markings. returns 'g' for green line and 'r' for red line. None if no colission. 
+        if colission is with both, 'r' is returned
+        '''
+        transformed = self.track.get_transformed()
+        rows, cols, _ = transformed.shape
+        x1 = cols//2-self.track_width//2
+        x2 = cols//2+self.track_width//2
+        y1 = rows//2-self.wheelbase
+        y2 = rows//2
+        croped = transformed[y1:y2,x1:x2,:]
+        colission_pixels_red = np.where(croped[:,:,2] > 100)
+        colission_pixels_green = np.where(croped[:,:,1] > 100)
+        if colission_pixels_red[0].shape[0] > 0:
+            return 'r'
+        elif colission_pixels_green[0].shape[0] > 0:
+            return 'g'
+        else:
+            return None
 
     ######## 
     # For Visualisation

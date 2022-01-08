@@ -8,7 +8,7 @@ observation = env.reset()
 while True:
     env.render()
     #action = env.action_space.sample()
-    action = [0.4,-1.0]
+    action = [0.4,0.0]
     observation, reward, done, info = env.step(action)
 
     if done:
