@@ -65,6 +65,9 @@ class TinyCarloEnv(gym.Env):
     def reset(self):
         self.car.reset()
         self.observation = np.zeros((1,1))
+        self.done = False
+        self.reward_sum = 0
+        self.step_cnt = 0
 
     def render(self, mode="human", close=False):
         start = time.time()
@@ -83,6 +86,7 @@ class TinyCarloEnv(gym.Env):
         if cv2.waitKey(int(waiting_time*1000)) & 0xFF == ord('q'):
             self.close()
             self.done = True
+            exit(0)
 
     def close(self):
         cv2.destroyAllWindows()
