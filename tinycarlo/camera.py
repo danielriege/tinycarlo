@@ -25,12 +25,16 @@ class Camera():
         croped = transformed[self.y2:self.y1,self.x1:self.x2,:]
         return croped
     
+    ######## 
+    # For Visualisation
+    
     def get_frame_points(self):
+        # points are relative from middle of rear axcle. List of vectors
         pts = [
-            [self.car.wheelbase, -self.resolution[0]//2,1],
+            [self.car.wheelbase+10, -self.resolution[0]//2,1],
             [self.car.wheelbase+self.resolution[1], -self.resolution[0]//2,1],
             [self.car.wheelbase+self.resolution[1], +self.resolution[0]//2,1],
-            [self.car.wheelbase, +self.resolution[0]//2,1]
+            [self.car.wheelbase+10, +self.resolution[0]//2,1]
         ]
         T_M = self.car.get_transformation_matrix()
         transformed = [T_M.dot(pt) for pt in pts]
