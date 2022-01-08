@@ -70,8 +70,8 @@ class Car():
         y1 = rows//2-self.wheelbase
         y2 = rows//2
         croped = transformed[y1:y2,x1:x2,:]
-        colission_pixels_red = np.where(croped[:,:,2] > 100)
-        colission_pixels_green = np.where(croped[:,:,1] > 100)
+        colission_pixels_red = np.where(croped[:,:,2] > 200)
+        colission_pixels_green = np.where(croped[:,:,1] > 200)
         if colission_pixels_red[0].shape[0] > 0:
             return 'r'
         elif colission_pixels_green[0].shape[0] > 0:
