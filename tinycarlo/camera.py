@@ -24,3 +24,14 @@ class Camera():
     
         croped = transformed[self.y2:self.y1,self.x1:self.x2,:]
         return croped
+    
+    def get_frame_points(self):
+        pts = [
+            [self.car.wheelbase, -self.resolution[0]//2,1],
+            [self.car.wheelbase+self.resolution[1], -self.resolution[0]//2,1],
+            [self.car.wheelbase+self.resolution[1], +self.resolution[0]//2,1],
+            [self.car.wheelbase, +self.resolution[0]//2,1]
+        ]
+        T_M = self.car.get_transformation_matrix()
+        transformed = [T_M.dot(pt) for pt in pts]
+        return np.array(transformed)[:,:-1]

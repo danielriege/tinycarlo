@@ -14,7 +14,7 @@ class TinyCarloEnv(gym.Env):
         ####### CONFIGURATION
         self.wheelbase = 160 # in mm
         self.track_width = 100 # in mm
-        self.mass = 6
+        self.mass = 4 # in kg
         self.T = 1/fps
 
         self.camera_resolution = (640,480)
@@ -32,7 +32,7 @@ class TinyCarloEnv(gym.Env):
         self.track = Track()
 
         self.camera = Camera(self.track, self.car, self.camera_resolution)
-        self.renderer = Renderer(self.track, self.car)
+        self.renderer = Renderer(self.track, self.car, [self.camera])
         self.loop_time = 1
 
         self.reset()

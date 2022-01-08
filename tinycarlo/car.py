@@ -29,14 +29,15 @@ class Car():
         self.position[1] += dy*1000
         self.rotation += dyaw
 
-    def get_polyline_points(self):
+    def get_transformation_matrix(self):
         R_M = np.array([[math.cos(self.rotation), -math.sin(self.rotation),0],[math.sin(self.rotation), math.cos(self.rotation),0], [0,0,1]])
-        tx = self.position[0]
-        ty = self.position[1]
-        T_M = np.array([[1,0,tx], [0,1,ty], [0,0,1]])
+        T_M = np.array([[1,0,self.position[0]], [0,1,self.position[1]], [0,0,1]])
+        return T_M @ R_M
+
+    def get_polyline_points(self):
+        T_M = self.get_transformation_matrix()
         pts = [[0, -self.track_width//2,1], [0, self.track_width//2,1], [self.wheelbase, self.track_width//2,1], [self.wheelbase, -self.track_width//2,1]]
 
-        rotated = [R_M.dot(pt) for pt in pts]
-        translated = [T_M.dot(pt) for pt in rotated]
-        return np.array(translated)[:,:-1]
+        transformed = [T_M.dot(pt) for pt in pts]
+        return np.array(transformed)[:,:-1]
 
