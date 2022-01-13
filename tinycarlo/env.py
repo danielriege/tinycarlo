@@ -20,19 +20,21 @@ class TinyCarloEnv(gym.Env):
         self.mass = 4 # in kg
         self.T = 1/fps
 
+        self.step_limit = 1000
         self.camera_resolution = (480//4, 640//4)
 
         ########
         # action space: (velocity, steering angle)
-        self.action_space = gym.spaces.Box(-1, 1, shape=(2,))
+        self.action_space = gym.spaces.Box(-1, 1, shape=(1,))
         self.observation_space = gym.spaces.Box(
             low=0, high=255, shape=self.camera_resolution + (3,), dtype=np.uint8
         )
         self.done = False
         self.reward_sum = 0
         self.step_cnt = 0
+        self.last_steering_angle = 0.0
 
-        self.reward_handler = RewardHandler(reward_red='done', reward_green=-10, reward_tick=1)
+        self.reward_handler = RewardHandler(reward_red='done', reward_green=-2, reward_tick=1)
 
         self.track = Track()
         self.car = Car(self.track, self.track_width, self.wheelbase, self.T)
@@ -45,7 +47,14 @@ class TinyCarloEnv(gym.Env):
 
     def step(self, action):
         self.step_cnt += 1
-        self.car.step(*action)
+
+        # reduce jitter by punishing for big steering angle swings
+        steering_angle = action[0]
+        steering_angle_diff = self.last_steering_angle - steering_angle
+        jitter_reward = -round(abs(steering_angle_diff / 2)**1.5 * 10)
+        self.last_steeing_angle = steering_angle
+
+        self.car.step(1.0, steering_angle)
 
         # generate new transformed track with car position in center
         self.track.transform(self.car.position, self.car.rotation)
@@ -58,8 +67,13 @@ class TinyCarloEnv(gym.Env):
             reward = 0
             self.done = True
         else:
+            reward += jitter_reward
             self.reward_sum += reward
+
         info = {}
+
+        if self.step_cnt > self.step_limit:
+            self.done = True
 
         return self.observation, reward, self.done, info
 
@@ -69,6 +83,7 @@ class TinyCarloEnv(gym.Env):
         self.track.transform(self.car.position, self.car.rotation)
         self.observation = self.camera.capture_frame()
 
+        self.last_steering_angle = 0.0
         self.done = False
         self.reward_sum = 0
         self.step_cnt = 0
@@ -92,7 +107,7 @@ class TinyCarloEnv(gym.Env):
         if cv2.waitKey(int(waiting_time*1000)) & 0xFF == ord('q'):
             self.close()
             self.done = True
-            exit(0)
+            self.reset()
 
     def close(self):
         cv2.destroyAllWindows()
