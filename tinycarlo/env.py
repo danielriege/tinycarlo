@@ -20,7 +20,7 @@ class TinyCarloEnv(gym.Env):
         self.mass = 4 # in kg
         self.T = 1/fps
 
-        self.camera_resolution = (640,480)
+        self.camera_resolution = (480, 640)
 
         ########
         # action space: (velocity, steering angle)
