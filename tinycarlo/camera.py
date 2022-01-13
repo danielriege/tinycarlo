@@ -10,10 +10,10 @@ class Camera():
         self.resolution = resolution
 
         self.rows, self.cols, _ = self.track_image.shape
-        self.x1 = self.cols//2 - self.resolution[0]//2
-        self.x2 = self.x1 + self.resolution[0]
+        self.x1 = self.cols//2 - self.resolution[1]//2
+        self.x2 = self.x1 + self.resolution[1]
         self.y1 = self.rows//2 - self.car.wheelbase
-        self.y2 = self.y1 - self.resolution[1]
+        self.y2 = self.y1 - self.resolution[0]
     
     def capture_frame(self):
         transformed = self.track.get_transformed()

@@ -11,6 +11,8 @@ from tinycarlo.camera import Camera
 from tinycarlo.reward_handler import RewardHandler
 
 class TinyCarloEnv(gym.Env):
+    metadata = {'render.modes': ['human']}
+
     def __init__(self, fps=30):
         ####### CONFIGURATION
         self.wheelbase = 160 # in mm
@@ -18,14 +20,13 @@ class TinyCarloEnv(gym.Env):
         self.mass = 4 # in kg
         self.T = 1/fps
 
-        self.camera_resolution = (640,480)
+        self.camera_resolution = (480, 640)
 
         ########
-
         # action space: (velocity, steering angle)
         self.action_space = gym.spaces.Box(-1, 1, shape=(2,))
         self.observation_space = gym.spaces.Box(
-            low=0.0, high=1.0, shape=self.camera_resolution + (3,), dtype=np.float32
+            low=0, high=255, shape=self.camera_resolution + (3,), dtype=np.uint8
         )
         self.done = False
         self.reward_sum = 0
@@ -58,16 +59,21 @@ class TinyCarloEnv(gym.Env):
             self.done = True
         else:
             self.reward_sum += reward
-        info = None
+        info = {}
 
         return self.observation, reward, self.done, info
 
     def reset(self):
         self.car.reset()
-        self.observation = np.zeros((1,1))
+
+        self.track.transform(self.car.position, self.car.rotation)
+        self.observation = self.camera.capture_frame()
+
         self.done = False
         self.reward_sum = 0
         self.step_cnt = 0
+
+        return self.observation
 
     def render(self, mode="human", close=False):
         start = time.time()
