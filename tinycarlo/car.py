@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import cv2
+from numpy.core.fromnumeric import ptp
 
 class Car():
     def __init__(self, track, track_width, wheelbase, T):
@@ -17,6 +18,7 @@ class Car():
     def reset(self):
         self.position = np.array([700,1460])
         self.rotation = 0.48
+        self.rotation = 0
         self.steering_angle = 0.0
         self.radius = 0.0
 
@@ -30,14 +32,27 @@ class Car():
         ang_vel = fwd_vel / self.radius
         dyaw = ang_vel * dt
 
-        vx = fwd_vel * math.cos(self.rotation)
-        vy = fwd_vel * math.sin(self.rotation)
+        vxn = fwd_vel * math.cos(self.rotation) / fwd_vel
+        vyn = fwd_vel * math.sin(self.rotation) / fwd_vel
 
-        dx = (vx * math.cos(dyaw) - vy * math.sin(dyaw)) * dt
-        dy = (vx * math.sin(dyaw) + vy * math.cos(dyaw)) * dt
 
-        self.position[0] += dx*1000
-        self.position[1] += dy*1000
+        angle_for_normalvector = math.radians(-90)
+        if steering_angle <= 0:
+            angle_for_normalvector = math.radians(90)
+
+        nx = vxn * math.cos(angle_for_normalvector) - vyn * math.sin(angle_for_normalvector)
+        ny = vxn * math.sin(angle_for_normalvector) + vyn * math.cos(angle_for_normalvector)
+
+        tx = nx * self.radius * 1000
+        ty = ny * self.radius * 1000
+
+        R_M = np.array([[math.cos(dyaw), -math.sin(dyaw)],[math.sin(dyaw), math.cos(dyaw)]])
+
+        rotated_vec = R_M.dot([tx, ty])
+        
+        self.position[0] = self.position[0] - tx + rotated_vec[0]
+        self.position[1] = self.position[1] - ty + rotated_vec[1]
+    
         self.rotation += dyaw
 
     def calculate_steering_front(self):
