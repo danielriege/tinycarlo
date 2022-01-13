@@ -9,7 +9,7 @@ for episode in range(10):
     while True:
         env.render()
         #action = env.action_space.sample()
-        action = [0.2,1.0]
+        action = [0.2,0.0]
         observation, reward, done, info = env.step(action)
 
         if done:

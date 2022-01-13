@@ -18,7 +18,6 @@ class Car():
     def reset(self):
         self.position = np.array([700,1460])
         self.rotation = 0.48
-        self.rotation = 0
         self.steering_angle = 0.0
         self.radius = 0.0
 
@@ -32,12 +31,11 @@ class Car():
         ang_vel = fwd_vel / self.radius
         dyaw = ang_vel * dt
 
-        vxn = fwd_vel * math.cos(self.rotation) / fwd_vel
-        vyn = fwd_vel * math.sin(self.rotation) / fwd_vel
-
+        vxn = math.cos(self.rotation)
+        vyn = math.sin(self.rotation)
 
         angle_for_normalvector = math.radians(-90)
-        if steering_angle <= 0:
+        if steering_angle < 0:
             angle_for_normalvector = math.radians(90)
 
         nx = vxn * math.cos(angle_for_normalvector) - vyn * math.sin(angle_for_normalvector)

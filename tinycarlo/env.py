@@ -32,7 +32,7 @@ class TinyCarloEnv(gym.Env):
         self.reward_sum = 0
         self.step_cnt = 0
 
-        self.reward_handler = RewardHandler(reward_red=-1, reward_green=-10, reward_tick=1)
+        self.reward_handler = RewardHandler(reward_red='done', reward_green=-10, reward_tick=1)
 
         self.track = Track()
         self.car = Car(self.track, self.track_width, self.wheelbase, self.T)
