@@ -1,7 +1,6 @@
 import math
 import numpy as np
 import cv2
-from numpy.core.fromnumeric import ptp
 
 class Car():
     def __init__(self, track, track_width, wheelbase, T):
@@ -27,41 +26,50 @@ class Car():
         fwd_vel *= 1 # max is 1 m/s
         self.steering_angle = steering_angle * 33 # max steering is 33 degree
 
-        self.radius = self.wheelbase/1000 / (math.tan(math.radians(self.steering_angle)+0.000001))
-        ang_vel = fwd_vel / self.radius
-        dyaw = ang_vel * dt
-
         vxn = math.cos(self.rotation)
         vyn = math.sin(self.rotation)
 
-        angle_for_normalvector = math.radians(-90)
-        if steering_angle < 0:
-            angle_for_normalvector = math.radians(90)
+        if steering_angle == 0:
+            self.radius = 0
 
-        nx = vxn * math.cos(angle_for_normalvector) - vyn * math.sin(angle_for_normalvector)
-        ny = vxn * math.sin(angle_for_normalvector) + vyn * math.cos(angle_for_normalvector)
+            self.position[0] = self.position[0] + fwd_vel * vxn * dt * 1000
+            self.position[1] = self.position[1] + fwd_vel * vyn * dt * 1000
+        else:
+            self.radius = self.wheelbase/1000 / (math.tan(math.radians(self.steering_angle)))
+            ang_vel = fwd_vel / self.radius
+            dyaw = ang_vel * dt
 
-        tx = nx * self.radius * 1000
-        ty = ny * self.radius * 1000
+            angle_for_normalvector = math.radians(-90)
+            if steering_angle < 0:
+                angle_for_normalvector = math.radians(90)
 
-        R_M = np.array([[math.cos(dyaw), -math.sin(dyaw)],[math.sin(dyaw), math.cos(dyaw)]])
+            nx = vxn * math.cos(angle_for_normalvector) - vyn * math.sin(angle_for_normalvector)
+            ny = vxn * math.sin(angle_for_normalvector) + vyn * math.cos(angle_for_normalvector)
 
-        rotated_vec = R_M.dot([tx, ty])
+            tx = nx * self.radius * 1000
+            ty = ny * self.radius * 1000
+
+            R_M = np.array([[math.cos(dyaw), -math.sin(dyaw)],[math.sin(dyaw), math.cos(dyaw)]])
+
+            rotated_vec = R_M.dot([tx, ty])
         
-        self.position[0] = self.position[0] - tx + rotated_vec[0]
-        self.position[1] = self.position[1] - ty + rotated_vec[1]
-    
-        self.rotation += dyaw
+            self.position[0] = self.position[0] - tx + rotated_vec[0]
+            self.position[1] = self.position[1] - ty + rotated_vec[1]
+        
+            self.rotation += dyaw
 
     def calculate_steering_front(self):
-        wb = self.wheelbase/1000
-        tw = (self.track_width/1000)
-        inner = math.atan(wb/(self.radius-(tw//2+0.000001))) * -1
-        outer = math.atan(wb/(self.radius+(tw//2+0.000001))) * -1
-        if self.radius > 0:
-            return (outer, inner) # left, right
+        if self.radius == 0:
+            return (0,0)
         else:
-            return (inner, outer)
+            wb = self.wheelbase/1000
+            tw = (self.track_width/1000)
+            inner = math.atan(wb/(self.radius-(tw//2+0.000001))) * -1
+            outer = math.atan(wb/(self.radius+(tw//2+0.000001))) * -1
+            if self.radius > 0:
+                return (outer, inner) # left, right
+            else:
+                return (inner, outer)
 
     def get_transformation_matrix(self):
         ''' 
