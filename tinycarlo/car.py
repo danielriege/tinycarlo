@@ -39,9 +39,7 @@ class Car():
             ang_vel = fwd_vel / self.radius
             dyaw = ang_vel * dt
 
-            angle_for_normalvector = math.radians(-90)
-            if steering_angle < 0:
-                angle_for_normalvector = math.radians(90)
+            angle_for_normalvector = -1.5708
 
             nx = vxn * math.cos(angle_for_normalvector) - vyn * math.sin(angle_for_normalvector)
             ny = vxn * math.sin(angle_for_normalvector) + vyn * math.cos(angle_for_normalvector)
