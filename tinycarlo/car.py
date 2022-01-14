@@ -15,7 +15,7 @@ class Car():
         self.wheel_width = 6 # in mm
 
     def reset(self):
-        self.position = np.array([700,1460])
+        self.position = np.array([700.0,1460.0])
         self.rotation = 0.48
         self.steering_angle = 0.0
         self.radius = 0.0
@@ -39,10 +39,8 @@ class Car():
             ang_vel = fwd_vel / self.radius
             dyaw = ang_vel * dt
 
-            angle_for_normalvector = -1.5708
-
-            nx = vxn * math.cos(angle_for_normalvector) - vyn * math.sin(angle_for_normalvector)
-            ny = vxn * math.sin(angle_for_normalvector) + vyn * math.cos(angle_for_normalvector)
+            nx = vyn # normalvector
+            ny = -vxn
 
             tx = nx * self.radius * 1000
             ty = ny * self.radius * 1000
