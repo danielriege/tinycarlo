@@ -13,15 +13,20 @@ from tinycarlo.reward_handler import RewardHandler
 class TinyCarloEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, fps=30):
+    def __init__(self, fps=30, wheelbase=160, track_width=100, camera_resolution=(480,640), car_velocity=0.5, 
+    reward_red='done', reward_green=-2):
         ####### CONFIGURATION
-        self.wheelbase = 160 # in mm
-        self.track_width = 100 # in mm
+        self.wheelbase = wheelbase # in mm
+        self.track_width = track_width # in mm
         self.mass = 4 # in kg
         self.T = 1/fps
+        self.car_velocity = car_velocity
 
         self.step_limit = 1000
-        self.camera_resolution = (480//4, 640//4)
+        self.camera_resolution = camera_resolution
+
+        self.reward_red = reward_red
+        self.reward_green = reward_green
 
         ########
         # action space: (velocity, steering angle)
@@ -34,7 +39,7 @@ class TinyCarloEnv(gym.Env):
         self.step_cnt = 0
         self.last_steering_angle = 0.0
 
-        self.reward_handler = RewardHandler(reward_red='done', reward_green=-2, reward_tick=1)
+        self.reward_handler = RewardHandler(reward_red=self.reward_red, reward_green=self.reward_green, reward_tick=1)
 
         self.track = Track()
         self.car = Car(self.track, self.track_width, self.wheelbase, self.T)
@@ -54,7 +59,7 @@ class TinyCarloEnv(gym.Env):
         jitter_reward = -round(abs(steering_angle_diff / 2)**1.5 * 10)
         self.last_steeing_angle = steering_angle
 
-        self.car.step(1.0, steering_angle)
+        self.car.step(self.car_velocity, steering_angle)
 
         # generate new transformed track with car position in center
         self.track.transform(self.car.position, self.car.rotation)
