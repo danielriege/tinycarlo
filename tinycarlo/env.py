@@ -14,7 +14,7 @@ class TinyCarloEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, fps=30, wheelbase=160, track_width=100, camera_resolution=(480,640), car_velocity=0.5, 
-    reward_red='done', reward_green=-2):
+    reward_red='done', reward_green=-2, render_realtime=True):
         ####### CONFIGURATION
         self.wheelbase = wheelbase # in mm
         self.track_width = track_width # in mm
@@ -27,6 +27,8 @@ class TinyCarloEnv(gym.Env):
 
         self.reward_red = reward_red
         self.reward_green = reward_green
+
+        self.realtime = render_realtime
 
         ########
         # action space: (velocity, steering angle)
@@ -107,7 +109,7 @@ class TinyCarloEnv(gym.Env):
 
         self.loop_time = time.time() - start
         waiting_time = self.T - self.loop_time
-        if waiting_time < 0.001:
+        if waiting_time < 0.001 or self.realtime == False:
             waiting_time = 0.001
         if cv2.waitKey(int(waiting_time*1000)) & 0xFF == ord('q'):
             self.close()
