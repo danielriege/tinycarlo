@@ -6,8 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
      name='tinycarlo',  
      version='0.1',
-     scripts=['env.py'] ,
-     author="Daniel Riege",
+     author="Daniel Riege, Markus Kasten",
      description="OpenAI Gym for simple car simulation with segmented lane markings",
      long_description=long_description,
      long_description_content_type="text/markdown",
