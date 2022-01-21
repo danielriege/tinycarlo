@@ -1,10 +1,12 @@
 import cv2
 import math
 import numpy as np
+from os import path
 
 class Track():
     def __init__(self):
-        self.track = cv2.imread('./tinycarlo/track.png')
+        file_path = path.join(path.dirname(__file__), 'track.png')
+        self.track = cv2.imread(file_path)
         self.small_overview = cv2.resize(self.track, (self.track.shape[1]//2, self.track.shape[0]//2))
         self.rows, self.cols, _ = self.track.shape
 
