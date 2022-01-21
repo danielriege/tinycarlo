@@ -4,7 +4,7 @@ import numpy as np
 
 class Track():
     def __init__(self):
-        self.track = cv2.imread('tinycarlo/track.png')
+        self.track = cv2.imread('./tinycarlo/track.png')
         self.small_overview = cv2.resize(self.track, (self.track.shape[1]//2, self.track.shape[0]//2))
         self.rows, self.cols, _ = self.track.shape
 
