@@ -12,4 +12,11 @@ setuptools.setup(
      long_description_content_type="text/markdown",
      url="https://github.com/tinycar-ai/tinycarlo",
      packages=setuptools.find_packages(),
+     install_requires=[
+        'gym>=0.21.0',
+        'numpy>=1.22.0',
+        'opencv-python>=4.5.5.62',
+        'setuptools>=60.3.1'
+
+     ]
  )
