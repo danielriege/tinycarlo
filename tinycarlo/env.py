@@ -14,7 +14,7 @@ class TinyCarloEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, fps=30, wheelbase=160, track_width=100, camera_resolution=(480,640), car_velocity=0.5, 
-    reward_red='done', reward_green=-2, render_realtime=True):
+    reward_red='done', reward_green=-2, reward_tick=1, render_realtime=True):
         ####### CONFIGURATION
         self.wheelbase = wheelbase # in mm
         self.track_width = track_width # in mm
@@ -27,6 +27,7 @@ class TinyCarloEnv(gym.Env):
 
         self.reward_red = reward_red
         self.reward_green = reward_green
+        self.reward_tick = reward_tick
 
         self.realtime = render_realtime
 
@@ -41,7 +42,7 @@ class TinyCarloEnv(gym.Env):
         self.step_cnt = 0
         self.last_steering_angle = 0.0
 
-        self.reward_handler = RewardHandler(reward_red=self.reward_red, reward_green=self.reward_green, reward_tick=1)
+        self.reward_handler = RewardHandler(reward_red=self.reward_red, reward_green=self.reward_green, reward_tick=self.reward_tick)
 
         self.track = Track()
         self.car = Car(self.track, self.track_width, self.wheelbase, self.T)
@@ -71,7 +72,7 @@ class TinyCarloEnv(gym.Env):
         # calculate reward
         reward = self.reward_handler.tick(colission)
         if reward == 'done':
-            reward = 0
+            reward = -10
             self.done = True
         else:
             reward += jitter_reward
