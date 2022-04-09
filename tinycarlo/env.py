@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import gym
 import time
+import yaml
+import os
 
 from  tinycarlo.renderer import Renderer
 from tinycarlo.car import Car
@@ -13,39 +15,61 @@ from tinycarlo.reward_handler import RewardHandler
 class TinyCarloEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, fps=30, wheelbase=160, track_width=100, camera_resolution=(480,640), car_velocity=0.5, 
-    reward_red='done', reward_green=-2, reward_tick=1, render_realtime=True):
+    def __init__(self, 
+    environment=None
+    ):
         ####### CONFIGURATION
-        self.wheelbase = wheelbase # in mm
-        self.track_width = track_width # in mm
-        self.mass = 4 # in kg
-        self.T = 1/fps
-        self.car_velocity = car_velocity
+        # Load
+        try:
+            config_path = os.path.join(environment, "track.yaml")
+            with open(config_path, "r") as stream:
+                try:
+                    config = yaml.safe_load(stream)
+                    print(f'Loaded configuration file: {config_path}')
+                except yaml.YAMLError as exc:
+                    print(exc)
+        except:
+            config = {}
 
-        self.step_limit = 1000
-        self.camera_resolution = camera_resolution
+        # SIMULATION
+        sim_config = config.get("sim", {})
+        self.step_limit = sim_config.get('step_limit', None)
+        self.realtime = sim_config.get('render_realtime', True)
+        self.fps = sim_config.get('fps', 30)
+        self.random_spawn = sim_config.get('random_spawm', True)
 
-        self.reward_red = reward_red
-        self.reward_green = reward_green
-        self.reward_tick = reward_tick
+        # CAR
+        car_config = config.get('car', {})
+        self.wheelbase = car_config.get('wheelbase', 160)
+        self.track_width = car_config.get('track_width', 100)
+        self.mass = 4 # not used by now
+        self.T = 1/self.fps
+        self.car_velocity = car_config.get('velocity', 0.5)
+        self.max_steering_change = car_config.get('max_steering_change', None)
 
-        self.realtime = render_realtime
+        self.camera_resolution = car_config.get('camera_resolution', [480,640])
+
+        # REWARD DESIGN
+        reward_config = config.get('reward_design', {})
+        self.reward_red = reward_config.get('reward_red', 'done')
+        self.reward_green = reward_config.get('reward_green', -1)
+        self.cte_shaping = reward_config.get('cte_shaping', None)
 
         ########
         # action space: (velocity, steering angle)
         self.action_space = gym.spaces.Box(-1, 1, shape=(1,))
         self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=self.camera_resolution + (3,), dtype=np.uint8
+            low=0, high=255, shape=self.camera_resolution + [3,], dtype=np.uint8
         )
         self.done = False
         self.reward_sum = 0
         self.step_cnt = 0
         self.last_steering_angle = 0.0
 
-        self.reward_handler = RewardHandler(reward_red=self.reward_red, reward_green=self.reward_green, reward_tick=self.reward_tick)
-
         self.track = Track()
-        self.car = Car(self.track, self.track_width, self.wheelbase, self.T)
+        self.car = Car(self.track, self.track_width, self.wheelbase, self.max_steering_change, self.random_spawn, self.T)
+
+        self.reward_handler = RewardHandler(track=self.track, car=self.car, reward_red=self.reward_red, reward_green=self.reward_green)
 
         self.camera = Camera(self.track, self.car, self.camera_resolution)
         self.renderer = Renderer(self.track, self.car, [self.camera])
@@ -56,10 +80,7 @@ class TinyCarloEnv(gym.Env):
     def step(self, action):
         self.step_cnt += 1
 
-        # reduce jitter by punishing for big steering angle swings
         steering_angle = action[0]
-        steering_angle_diff = self.last_steering_angle - steering_angle
-        jitter_reward = -round(abs(steering_angle_diff / 2)**1.5 * 10)
         self.last_steeing_angle = steering_angle
 
         self.car.step(self.car_velocity, steering_angle)
@@ -70,12 +91,11 @@ class TinyCarloEnv(gym.Env):
         self.observation = self.camera.capture_frame()
         colission = self.car.check_colission()
         # calculate reward
-        reward = self.reward_handler.tick(colission)
+        reward = self.reward_handler.calc_reward(colission, shaping=self.cte_shaping)
         if reward == 'done':
-            reward = -10
+            reward = 0
             self.done = True
         else:
-            reward += jitter_reward
             self.reward_sum += reward
 
         info = {}
@@ -102,7 +122,7 @@ class TinyCarloEnv(gym.Env):
         start = time.time()
         camera_view = self.observation # observation is rendered camera view
 
-        overview = self.renderer.render_overview(self.loop_time, self.reward_sum, self.step_cnt)
+        overview = self.renderer.render_overview(self.loop_time, self.reward_sum, self.step_cnt, self.car.steering_input)
         overview = cv2.resize(overview, (overview.shape[1]//3, overview.shape[0]//3))
 
         cv2.imshow('Overview', overview)
@@ -119,3 +139,8 @@ class TinyCarloEnv(gym.Env):
 
     def close(self):
         cv2.destroyAllWindows()
+
+    ## Additional info about env
+
+    def get_cones(self):
+        return self.track.get_cones()

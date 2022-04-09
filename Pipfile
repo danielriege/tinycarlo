@@ -8,6 +8,8 @@ gym = "*"
 numpy = "*"
 setuptools = "*"
 opencv-python = "*"
+shapely = "*"
+pyyaml = "*"
 
 [dev-packages]
 black = "==21.12b0"

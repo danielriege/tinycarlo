@@ -1,13 +1,16 @@
 import math
 import numpy as np
 import cv2
+import random
 
 class Car():
-    def __init__(self, track, track_width, wheelbase, T):
+    def __init__(self, track, track_width, wheelbase, max_steering_change, random_spawn, T):
         self.track = track
         self.track_width = track_width
         self.wheelbase = wheelbase
+        self.max_steering_change = max_steering_change
         self.T = T
+        self.random_spawn = random_spawn
         self.reset()
 
         self.wheel_offset = 5 #from chassis
@@ -15,21 +18,29 @@ class Car():
         self.wheel_width = 6 # in mm
 
     def reset(self):
-        self.position = np.array([700.0,1460.0])
-        self.rotation = 0.48
+        self.position, self.rotation, self.direction = self.get_random_spawn(self.random_spawn)
         self.steering_angle = 0.0
+        self.steering_input = 0.0
         self.radius = 0.0
 
     def step(self, fwd_vel, steering_angle):
         dt = self.T
 
         fwd_vel *= 1 # max is 1 m/s
-        self.steering_angle = steering_angle * 33 # max steering is 33 degree
+        self.steering_input = steering_angle
+        new_steering_angle = steering_angle * 33 # max steering is 33 degree
+        if self.max_steering_change is None:
+            self.steering_angle = new_steering_angle
+        else:
+            # apply smoothness
+            max_steering_in_T = self.max_steering_change*self.T
+            steering_change = np.clip(new_steering_angle - self.steering_angle, -max_steering_in_T, max_steering_in_T)
+            self.steering_angle = self.steering_angle + steering_change
 
         vxn = math.cos(self.rotation)
         vyn = math.sin(self.rotation)
 
-        if steering_angle == 0:
+        if self.steering_angle == 0:
             self.radius = 0
 
             self.position[0] = self.position[0] + fwd_vel * vxn * dt * 1000
@@ -95,6 +106,21 @@ class Car():
             return 'g'
         else:
             return None
+
+
+    def get_random_spawn(self,ran=True):
+        # x,y, alpha
+        spawn_positions = np.array([
+            # 0 clockwise, 1 counterclockwise
+            [700.0,1460.0, 0.48, 1],
+            [1300.0,505.0, 0.48, 0],
+            [2750.0,505.0, 6.1, 0],
+            [325.0,760.0,1.6, 1],
+            [500.0,960.0, 4.7, 0],
+            [4370.0,2300.0, 5.2, 1]
+        ])
+        i = random.randint(0,5) if ran else 0
+        return spawn_positions[i,:2], spawn_positions[i,2], spawn_positions[i,3]
 
     ######## 
     # For Visualisation
