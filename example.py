@@ -3,7 +3,7 @@
 import gym
 import tinycarlo
 
-env = gym.make("tinycarlo-v0", environment="./example_tracks/segmented_track")
+env = gym.make("tinycarlo-v0", environment="./example_tracks/formula_student")
 
 print(env.observation_space.shape)
 print(env.action_space.shape[0])

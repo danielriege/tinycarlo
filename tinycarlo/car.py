@@ -4,21 +4,20 @@ import cv2
 import random
 
 class Car():
-    def __init__(self, track, track_width, wheelbase, max_steering_change, random_spawn, T):
+    def __init__(self, track, track_width, wheelbase, max_steering_change, T):
         self.track = track
         self.track_width = track_width
         self.wheelbase = wheelbase
         self.max_steering_change = max_steering_change
         self.T = T
-        self.random_spawn = random_spawn
         self.reset()
 
-        self.wheel_offset = 5 #from chassis
-        self.wheel_length = 40 # in mm
-        self.wheel_width = 6 # in mm
+        self.wheel_offset = self.track_width//5 #from chassis
+        self.wheel_length = self.wheelbase//3 # in mm
+        self.wheel_width = self.wheel_length//6 # in mm
 
     def reset(self):
-        self.position, self.rotation, self.direction = self.get_random_spawn(self.random_spawn)
+        self.position, self.rotation = self.get_random_spawn()
         self.steering_angle = 0.0
         self.steering_input = 0.0
         self.radius = 0.0
@@ -108,19 +107,15 @@ class Car():
             return None
 
 
-    def get_random_spawn(self,ran=True):
+    def get_random_spawn(self):
         # x,y, alpha
-        spawn_positions = np.array([
-            # 0 clockwise, 1 counterclockwise
-            [700.0,1460.0, 0.48, 1],
-            [1300.0,505.0, 0.48, 0],
-            [2750.0,505.0, 6.1, 0],
-            [325.0,760.0,1.6, 1],
-            [500.0,960.0, 4.7, 0],
-            [4370.0,2300.0, 5.2, 1]
-        ])
-        i = random.randint(0,5) if ran else 0
-        return spawn_positions[i,:2], spawn_positions[i,2], spawn_positions[i,3]
+        spawn_positions = np.array(self.track.get_spawns())
+        max_index = len(spawn_positions)-1
+        if max_index < 0:
+            max_index = 0
+        i = random.randint(0,max_index)
+        #x,y,alpha
+        return spawn_positions[i,:2], spawn_positions[i,2]
 
     ######## 
     # For Visualisation
@@ -128,7 +123,10 @@ class Car():
     def get_chassis_points(self):
         T_M = self.get_transformation_matrix()
         # points are relative from middle of rear axcle. List of vectors
-        pts = [[0, -self.track_width//2,1], [0, self.track_width//2,1], [self.wheelbase, self.track_width//2,1], [self.wheelbase, -self.track_width//2,1]]
+        pts = [[0, -self.track_width//2+self.wheel_offset,1], 
+        [0, self.track_width//2-self.wheel_offset,1], 
+        [self.wheelbase, self.track_width//2-self.wheel_offset,1], 
+        [self.wheelbase, -self.track_width//2+self.wheel_offset,1]]
 
         transformed = [T_M.dot(pt) for pt in pts]
         return np.array(transformed)[:,:-1]
@@ -136,19 +134,19 @@ class Car():
     def get_wheel_points(self):
         T_M = self.get_transformation_matrix()
         fl_angle, fr_angle = self.calculate_steering_front()
-        fl_R_M = np.concatenate((cv2.getRotationMatrix2D((self.wheelbase-self.wheel_length//2, -self.track_width//2-self.wheel_offset),math.degrees(fl_angle),1), np.array([[0,0,1]])))
-        fr_R_M = np.concatenate((cv2.getRotationMatrix2D((self.wheelbase-self.wheel_length//2, self.track_width//2+self.wheel_offset),math.degrees(fr_angle),1), np.array([[0,0,1]])))
+        fl_R_M = np.concatenate((cv2.getRotationMatrix2D((self.wheelbase-self.wheel_length//2, -self.track_width//2),math.degrees(fl_angle),1), np.array([[0,0,1]])))
+        fr_R_M = np.concatenate((cv2.getRotationMatrix2D((self.wheelbase-self.wheel_length//2, self.track_width//2),math.degrees(fr_angle),1), np.array([[0,0,1]])))
         
-        fl = [[self.wheelbase-self.wheel_length, -self.track_width//2-self.wheel_offset,1], [self.wheelbase, -self.track_width//2-self.wheel_offset, 1]]
-        fr = [[self.wheelbase-self.wheel_length, self.track_width//2+self.wheel_offset,1], [self.wheelbase, self.track_width//2+self.wheel_offset,1]]
+        fl = [[self.wheelbase-self.wheel_length, -self.track_width//2,1], [self.wheelbase, -self.track_width//2, 1]]
+        fr = [[self.wheelbase-self.wheel_length, self.track_width//2,1], [self.wheelbase, self.track_width//2,1]]
         # rotate front wheels by steering angle
         fl = [(T_M @ fl_R_M).dot(pt) for pt in fl]
         fl = np.array(fl)[:,:-1]
         fr = [(T_M @ fr_R_M).dot(pt) for pt in fr]
         fr = np.array(fr)[:,:-1]
 
-        rl = [[0, -self.track_width//2-self.wheel_offset,1], [self.wheel_length, -self.track_width//2-self.wheel_offset,1]]
-        rr = [[0, self.track_width//2+self.wheel_offset,1], [self.wheel_length, self.track_width//2+self.wheel_offset,1]]
+        rl = [[0, -self.track_width//2,1], [self.wheel_length, -self.track_width//2,1]]
+        rr = [[0, self.track_width//2,1], [self.wheel_length, self.track_width//2,1]]
 
         rl = [T_M.dot(pt) for pt in rl]
         rl = np.array(rl)[:,:-1]

@@ -1,0 +1,29 @@
+sim:
+  fps: 30 # int
+  render_realtime: True # boolean
+  step_limit: 1000 # int
+  overview_downscale: 1.5 # int
+reward_design:
+  color_obstacles:
+    - color: [255,0,0] # BGR
+      reward: 0 # int or done (resets simulation)
+    - color: [0,255,0]
+      reward: 0
+  cross_track_error:
+    use_cte: True
+    trajectory_color: [255,255,255] # BGR
+  # cte_shaping: sparse_reward # function pointer with cte parameter (e.g. def sparse_reward(cte):)
+car:
+  wheelbase: 150 # int (mm)
+  track_width: 100 # int (mm)
+  velocity: 500 # float (mm/s)
+  # max_steering_change: 66 # int (deg/s)
+cameras:
+  - id: front_camera
+    resolution: [120,160] # [y,x]
+    roi: [480,640] # [y,x]
+    position: [0,0] # [y,x] relative from middle of front axle
+tracks:
+  - image: fs_img.jpg
+    spawns: # [x (mm): float,y (mm): float,alpha (rad): float]
+      - [700.0,1460.0, 0.48]
