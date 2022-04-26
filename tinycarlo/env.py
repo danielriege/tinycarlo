@@ -16,7 +16,8 @@ class TinyCarloEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, 
-    environment=None
+    environment=None,
+    cte_shaping=None
     ):
         ####### CONFIGURATION
         # Load
@@ -52,9 +53,8 @@ class TinyCarloEnv(gym.Env):
 
         # REWARD DESIGN
         reward_config = config.get('reward_design', {})
-        self.reward_red = reward_config.get('reward_red', 0)
-        self.reward_green = reward_config.get('reward_green', 0)
-        self.cte_shaping = reward_config.get('cte_shaping', None)
+        self.reward_obstacles = reward_config.get('color_obstacles', [])
+        self.cte_shaping = cte_shaping
 
         cte_config = reward_config.get('cross_track_error', {})
         self.use_cte = cte_config.get('use_cte', False)
@@ -73,7 +73,7 @@ class TinyCarloEnv(gym.Env):
         self.track = Track(self.track_config, environment, self.overview_downscale, self.trajectory_color)
         self.car = Car(self.track, self.track_width, self.wheelbase, self.max_steering_change, self.T)
 
-        self.reward_handler = RewardHandler(track=self.track, car=self.car, reward_red=self.reward_red, reward_green=self.reward_green, use_cte=self.use_cte)
+        self.reward_handler = RewardHandler(track=self.track, car=self.car, reward_obstacles=self.reward_obstacles, use_cte=self.use_cte)
 
         self.cameras = self.__create_cameras(self.camera_config)
         self.renderer = Renderer(self.track, self.car, self.cameras, self.overview_downscale)
@@ -89,6 +89,8 @@ class TinyCarloEnv(gym.Env):
         self.reset()
 
     def step(self, action):
+        start = time.time()
+
         self.step_cnt += 1
 
         steering_angle = action[0]
@@ -103,7 +105,7 @@ class TinyCarloEnv(gym.Env):
         for camera in self.cameras:
             self.observation[camera.id] = camera.capture_frame()
 
-        colission = self.car.check_colission()
+        colission = self.car.check_colission(self.reward_obstacles)
         # calculate reward
         reward = self.reward_handler.calc_reward(colission, shaping=self.cte_shaping)
         if reward == 'done':
@@ -117,6 +119,7 @@ class TinyCarloEnv(gym.Env):
         if self.step_cnt > self.step_limit:
             self.done = True
 
+        self.loop_time = time.time() - start
         return self.observation, reward, self.done, info
 
     def reset(self):
@@ -135,8 +138,6 @@ class TinyCarloEnv(gym.Env):
         return self.observation
 
     def render(self, mode="human", close=False):
-        start = time.time()
-        
         camera_views = self.observation # observation is rendered camera view
 
         overview = self.renderer.render_overview(self.loop_time, self.reward_sum, self.step_cnt, self.car.steering_input)
@@ -146,8 +147,10 @@ class TinyCarloEnv(gym.Env):
         for camera_id in camera_views:
             cv2.imshow(camera_id, self.observation[camera_id])
 
-        self.loop_time = time.time() - start
         waiting_time = self.T - self.loop_time
+        if waiting_time < 0 and self.step_cnt > 0: # ignore first render since it takes more time
+            print(f'Simulation is running behind. Please lower the FPS. Last step took {1/self.loop_time:.0f} FPS.')
+
         if waiting_time < 0.001 or self.realtime == False:
             waiting_time = 0.001
         if cv2.waitKey(int(waiting_time*1000)) & 0xFF == ord('q'):

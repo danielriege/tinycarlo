@@ -3,6 +3,8 @@ import numpy as np
 import cv2
 import random
 
+import time
+
 class Car():
     def __init__(self, track, track_width, wheelbase, max_steering_change, T):
         self.track = track
@@ -85,11 +87,11 @@ class Car():
         T_M = np.array([[1,0,self.position[0]], [0,1,self.position[1]], [0,0,1]])
         return T_M @ R_M
     
-    def check_colission(self):
+    def check_colission(self, obstacles):
         '''
-        Checks for colissions with road markings. returns 'g' for green line and 'r' for red line. None if no colission. 
-        if colission is with both, 'r' is returned
+        Checks for colissions with road markings. None if no colission.
         '''
+        start = time.time()
         transformed = self.track.get_transformed()
         rows, cols, _ = transformed.shape
         x1 = cols//2-self.track_width//2
@@ -97,14 +99,12 @@ class Car():
         y1 = rows//2-self.wheelbase
         y2 = rows//2
         croped = transformed[y1:y2,x1:x2,:]
-        colission_pixels_red = np.where(croped[:,:,2] > 200)
-        colission_pixels_green = np.where(croped[:,:,1] > 200)
-        if colission_pixels_red[0].shape[0] > 0:
-            return 'r'
-        elif colission_pixels_green[0].shape[0] > 0:
-            return 'g'
-        else:
-            return None
+        colored_pixels = np.where(croped[:,:,:] > 50)
+        for obstacle in obstacles:
+            for y,x in zip(colored_pixels[0], colored_pixels[1]):
+                if (croped[y,x] == obstacle['color']).all():
+                    return obstacle['color']
+        return None
 
 
     def get_random_spawn(self):
