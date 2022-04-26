@@ -103,27 +103,26 @@ For the structure of the `track.yaml` file, please use on of the example tracks:
 
 #### car
 
-| Key  | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-|      |      |         |             |
-|      |      |         |             |
-|      |      |         |             |
-|      |      |         |             |
+| Key                 | Type         | Default | Description                                                  |
+| ------------------- | ------------ | ------- | ------------------------------------------------------------ |
+| wheelbase           | int          | 160     | in pixels                                                    |
+| track_width         | int          | 100     | in pixels                                                    |
+| velocity            | float or int | 500     | pixels per second                                            |
+| max_steering_change | int          | None    | limits how fast the car can change it's steering angle. This depends on human performance or servo. if none, the steering angle can change completely between to sim steps. |
 
 #### camera
 
-| Key  | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-|      |      |         |             |
-|      |      |         |             |
-|      |      |         |             |
-|      |      |         |             |
+| Key        | Type       | Description                                                  |
+| ---------- | ---------- | ------------------------------------------------------------ |
+| id         | String     | ID of a camera. Only used as a key for the observation space. |
+| resolution | [int, int] | [y,x] resolution of camera. This does not affect the viewing space on track. If this is the same as the roi, np resize will be used. This should be equal or less than the roi to avoid weird upsampling. |
+| roi        | [int, int] | [y,x] region of interest of camera. This defines the viewing space of the camera on the track image. |
+| position   | [int, int] | [y,x] position of the camera relative to the middle of the front axle. |
 
 #### track
 
-| Key  | Type | Default | Description |
-| ---- | ---- | ------- | ----------- |
-|      |      |         |             |
-|      |      |         |             |
-|      |      |         |             |
-|      |      |         |             |
+| Key    | Type                          | Description                                                  |
+| ------ | ----------------------------- | ------------------------------------------------------------ |
+| image  | String                        | relative path to the track image based on the track.yaml file. |
+| spawns | list of [float, float, float] | list of spawn points. A spawn point is defined by x,y,alpha. x and y position is relative to the track image, therefore in pixels, and alpha is the direction the car is heading. Alpha is in radians and the 0 point is north (top of the track image). |
+
