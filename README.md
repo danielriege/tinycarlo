@@ -42,7 +42,7 @@ This simulation can be used like every other [OpenAI Gym](https://gym.openai.com
 import gym
 import tinycarlo
 
-env = gym.make("tinycarlo-v0", environment="./example_tracks/formula_student")
+env = gym.make("tinycarlo-v1", environment="./example_tracks/formula_student")
 
 observation = env.reset()
 while True:
