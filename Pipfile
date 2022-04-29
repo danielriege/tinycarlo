@@ -8,7 +8,6 @@ gym = "*"
 numpy = "*"
 setuptools = "*"
 opencv-python = "*"
-shapely = "*"
 pyyaml = "*"
 
 [dev-packages]
