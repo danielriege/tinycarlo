@@ -27,7 +27,7 @@ At the Carolo-Cup you have white road markings on a black surface. So the percep
 To get started, you'll need to have Python 3.9+ installed. You can use pip to install.
 
 ```
-pip install 
+pip install tinycarlo
 ```
 
 Please note that `gym` is already a dependency, so no need to install that too if not already done. 
