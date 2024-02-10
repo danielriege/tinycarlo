@@ -6,9 +6,9 @@ import time
 import yaml
 import os
 
-from  tinycarlo.renderer import Renderer
+from tinycarlo.renderer import Renderer
 from tinycarlo.car import Car
-from  tinycarlo.track import Track
+from tinycarlo.track import Track
 from tinycarlo.camera import Camera
 from tinycarlo.reward_handler import RewardHandler
 
