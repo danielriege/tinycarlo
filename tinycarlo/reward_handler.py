@@ -3,14 +3,14 @@ class RewardHandler():
     '''
     Calculates rewards for environment.
     '''
-    def __init__(self, track, car, reward_obstacles, use_cte):
+    def __init__(self, track, car, reward_obstacles=None, use_cte=None):
         self.track = track
         self.car = car
         self.last_cte = 0.0
         self.use_cte = use_cte
         self.reward_obstacles = reward_obstacles
 
-    def calc_reward(self, colission_object, cte=None, shaping=None):
+    def __call__(self, colission_object, cte=None, shaping=None):
         reward = 0
         if colission_object != None:
             for obstacle in self.reward_obstacles:

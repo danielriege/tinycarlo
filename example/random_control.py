@@ -1,7 +1,7 @@
 import gym
 import tinycarlo
 
-env = gym.make("tinycarlo-v1", environment="./example/segmented/")
+env = gym.make("tinycarlo-v1", config="./example/segmented_map/")
 
 observation = env.reset()
 while True:
