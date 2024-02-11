@@ -41,12 +41,11 @@ class Camera():
             # expand the points to 3D
             points = np.column_stack((points, np.zeros((len(points), 1))))
 
-            
             camera_pose = self.E 
             pp = self.__project_points(points, camera_pose, self.K)
             # filter out points that are not in the frame
             # we need the index of the points that are in the frame
-            indices = np.where((pp[:,0] > 0) & (pp[:,0] < self.resolution[0]) & (pp[:,1] > 0) & (pp[:,1] < self.resolution[1]))[0]
+            indices = np.where((pp[:,0] > 0) & (pp[:,0] < self.resolution[1]) & (pp[:,1] > 0) & (pp[:,1] < self.resolution[0]))[0]
             # in edges, keep only the tuples that contain one of the indices
             edges = [e for e in edges if e[0] in indices or e[1] in indices]
             # now, out of the projected points we create a list of point pairs, which we can use to draw the lines
