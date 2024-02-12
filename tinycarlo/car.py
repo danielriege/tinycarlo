@@ -70,9 +70,17 @@ class Car():
         ''' 
         Returns a Transformation matrix which points to middle of rear axcle in world
         '''
-        R_M = np.array([[math.cos(self.rotation), -math.sin(self.rotation),0],[math.sin(self.rotation), math.cos(self.rotation),0], [0,0,1]])
+        R_M = np.array([[math.cos(self.rotation), -math.sin(self.rotation),0],[math.sin(self.rotation), math.cos(self.rotation),0], [0,0,1,]])
         T_M = np.array([[1,0,self.position[0]], [0,1,self.position[1]], [0,0,1]])
         return T_M @ R_M
+    
+    def get_3d_transformation_matrix(self):
+        ''' 
+        Returns a Transformation matrix which points to middle of rear axcle in world
+        '''
+        R_M = np.array([[math.cos(-self.rotation), -math.sin(-self.rotation),0, 0],[math.sin(-self.rotation), math.cos(-self.rotation),0, 0], [0,0,1,0], [0,0,0,1]])
+        T_M = np.array([[1,0,0,-self.position[0]], [0,1,0,-self.position[1]], [0,0,1,0], [0,0,0,1]])
+        return R_M @ T_M
     
     def check_colission(self, obstacles):
         '''

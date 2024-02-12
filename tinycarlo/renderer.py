@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 class Renderer():
-    def __init__(self, map, car, cameras, overview_pixel_per_meter=2000):
+    def __init__(self, map, car, cameras, overview_pixel_per_meter=1000):
         self.map = map
         self.car = car
         self.cameras = cameras
