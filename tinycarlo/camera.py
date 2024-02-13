@@ -37,27 +37,25 @@ class Camera():
         """
         polylines = []
         for nodes, edges in zip(self.map.get_nodes(), self.map.get_edges()):
-            points = np.array(nodes)
-            # expand the points to 3D
-            points = np.column_stack((points, np.zeros((len(points), 1))))
+            # expand the points to 3D by adding z = 0
+            points = np.column_stack((np.array(nodes), np.zeros((len(nodes), 1))))
             
-            car_pose = self.car.get_3d_transformation_matrix()
-            camera_pose = self.E @ car_pose
-            pp, points_camera_frame = self.__project_points(points, self.E, self.K)
-            # No we have to handle points that are behind the camera
+            camera_pose = self.E @ self.car.get_3d_transformation_matrix()
+            points_camera_frame = self.__transform_into_camera_frame(points, camera_pose)
             depths = points_camera_frame[:,2]
-            idx_in_front = np.where(depths < 0)[0] # indices of points that are in front of camera (positive z behind cam)
+            # Now, there is still possibility that e0 is in frame and in front of camera, but e1 is behind camera => glitch when projecting
+            # 1. get edges affected by this
+            idx_behind = np.where(depths > 0)[0]
+            idx_front = np.where(depths < 0)[0]
+            for edge in [e for e in edges if e[0] in idx_behind and e[1] in idx_front]:
+                points_camera_frame[edge[0],:] = self.__point_on_line_at_z(points_camera_frame[edge[1],:], points_camera_frame[edge[0],:])
+            for edge in [e for e in edges if e[0] in idx_front and e[1] in idx_behind]:
+                points_camera_frame[edge[1],:] = self.__point_on_line_at_z(points_camera_frame[edge[0],:], points_camera_frame[edge[1],:])
+
+            pp = self.__project_to_image_plane(points_camera_frame, self.K)
             idx_in_frame = np.where((pp[:,0] > 0) & (pp[:,0] < self.resolution[1]) & (pp[:,1] > 0) & (pp[:,1] < self.resolution[0]))[0] # indices of points in frame
             # combine 
-            idx = np.intersect1d(idx_in_frame, idx_in_front)
-            # Now, there is still possibility that e0 is in frame and in front of camera, but e1 is behind camera => glitch
-            # for that, we change x and y value of the projected points which are behind the camera
-            cx = self.resolution[0] / 2
-            cy = self.resolution[1] / 2
-            idx_behind = np.where(depths > 0)[0]
-            #pp[idx_behind,0] = pp[idx_behind,0] + 2*-cx
-            #pp[idx_behind,1] = pp[idx_behind,1] + 2*cx
-
+            idx = np.intersect1d(idx_in_frame, idx_front)
             # now, out of the projected points we create a list of point pairs, which we can use to draw the lines
             list_of_pairs_for_layer = [(pp[e[0],:], pp[e[1],:]) for e in edges if e[0] in idx or e[1] in idx]
             
@@ -66,6 +64,17 @@ class Camera():
         frame = self.__render_frame(polylines, colors)
         return frame
 
+    def __point_on_line_at_z(self, p0, p1, target_z=-0.00001):
+        """
+        In 3D camera frame, an edge can go through the camera. This function returns a point on the line at z = 0, 
+        so the edge can correctly be projected to the image plane.
+        """
+        direction = p0 - p1
+        if direction[2] == 0:
+            return None # line is parallel to z-axis
+        t = (target_z - p1[2]) / direction[2]
+        pz = p1 + t * direction
+        return pz
         
     def __render_frame(self, points, colors):
         """
@@ -77,20 +86,25 @@ class Camera():
                 frame = cv2.polylines(frame, np.int32([line]), False, color, 1)
         return frame
 
-    def __project_points(self, points, extrinsic_matrix, intrinsic_matrix):
+    def __transform_into_camera_frame(self, points, extrinsic_matrix):
         """
-        Projects the given points to the camera plane.
+        Transforms the points from world coordinate system into camera coordinate system.
+        z-axis is pointing behind the camera!
         """
         points_3d_homogeneous = np.column_stack((points, np.ones((len(points), 1))))  # Convert to homogeneous coordinates
         # transform points into camera coordinate system
-        points_camera = extrinsic_matrix @ points_3d_homogeneous.T
-
-        # transform into image plane
-        points_2d_homogeneous = intrinsic_matrix @ points_camera
+        return (extrinsic_matrix @ points_3d_homogeneous.T).T
+    
+    def __project_to_image_plane(self, points_camera_frame, intrinsic_matrix):
+        """
+        Projects the points onto the image plane.
+        The points are expected to be in camera frame and in homogeneous coordinates.
+        """
+        points_2d_homogeneous = intrinsic_matrix @ points_camera_frame.T
 
         points_2d_normalized = points_2d_homogeneous / points_2d_homogeneous[2]
 
-        return points_2d_normalized[:2].T, points_camera.T
+        return points_2d_normalized[:2].T
 
     
     def __get_extrinsic_matrix(self):
