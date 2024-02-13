@@ -28,18 +28,13 @@ class TinyCarloEnv(gym.Env):
     def __init__(self, config = None):
         self.config_path = None
         if isinstance(config, str):
-            try:
+            if config.endswith(".yaml"):
+                self.config_path = os.path.abspath(config)
+            else:
                 self.config_path = os.path.abspath(os.path.join(config, "config.yaml"))
-                with open(self.config_path, "r") as stream:
-                    try:
-                        config = yaml.safe_load(stream)
-                        print(f'Loaded configuration file: {self.config_path}')
-                    except yaml.YAMLError as exc:
-                        print(exc)
-                        exit()
-            except:
-                print("Error: Could not load config file. Please provide a valid path to a config file.")
-                exit()
+            with open(self.config_path, "r") as stream:
+                config = yaml.safe_load(stream)
+                print(f'Loaded configuration file: {self.config_path}')
 
         self.T = 1/config['sim'].get('fps', 30) # time per frame
         self.step_limit = config['sim'].get('step_limit', 1000)

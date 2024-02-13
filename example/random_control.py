@@ -1,7 +1,9 @@
 import gym
 import tinycarlo
+import os
 
-env = gym.make("tinycarlo-v1", config="./example/segmented_map/")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./segmented_map/config.yaml")
+env = gym.make("tinycarlo-v1", config=config_path)
 
 observation = env.reset()
 while True:
