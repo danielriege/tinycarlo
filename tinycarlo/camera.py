@@ -11,6 +11,7 @@ class Camera():
         self.id = camera_config.get('id', 'unkown')
         self.orientation = camera_config.get('orientation', [0,0,0])
         self.fov = camera_config.get('fov', 90)
+        self.max_range = camera_config.get('max_range', None)
 
         self.E = self.__get_extrinsic_matrix()
         self.K = self.__get_intrinsic_matrix()
@@ -44,18 +45,28 @@ class Camera():
             points_camera_frame = self.__transform_into_camera_frame(points, camera_pose)
             depths = points_camera_frame[:,2]
             # Now, there is still possibility that e0 is in frame and in front of camera, but e1 is behind camera => glitch when projecting
-            # 1. get edges affected by this
-            idx_behind = np.where(depths > 0)[0]
             idx_front = np.where(depths < 0)[0]
-            for edge in [e for e in edges if e[0] in idx_behind and e[1] in idx_front]:
+            for edge in [e for e in edges if e[0] not in idx_front and e[1] in idx_front]:
                 points_camera_frame[edge[0],:] = self.__point_on_line_at_z(points_camera_frame[edge[1],:], points_camera_frame[edge[0],:])
-            for edge in [e for e in edges if e[0] in idx_front and e[1] in idx_behind]:
+                # needed otherwise this edge would not be considered if the other point is out of range or behind camera
+                idx_front = np.append(idx_front, edge[0])
+            for edge in [e for e in edges if e[0] in idx_front and e[1] not in idx_front]:
                 points_camera_frame[edge[1],:] = self.__point_on_line_at_z(points_camera_frame[edge[0],:], points_camera_frame[edge[1],:])
+                idx_front = np.append(idx_front, edge[1])
+            # same for points out of range
+            idx_in_range = np.where(depths > -self.max_range if self.max_range else True)[0]
+            for edge in [e for e in edges if e[0] not in idx_in_range and e[1] in idx_in_range]:
+                points_camera_frame[edge[0],:] = self.__point_on_line_at_z(points_camera_frame[edge[1],:], points_camera_frame[edge[0],:], -self.max_range)
+                idx_in_range = np.append(idx_in_range, edge[0])
+            for edge in [e for e in edges if e[0] in idx_in_range and e[1] not in idx_in_range]:
+                points_camera_frame[edge[1],:] = self.__point_on_line_at_z(points_camera_frame[edge[0],:], points_camera_frame[edge[1],:], -self.max_range)
+                idx_in_range = np.append(idx_in_range, edge[1])
 
             pp = self.__project_to_image_plane(points_camera_frame, self.K)
             idx_in_frame = np.where((pp[:,0] > 0) & (pp[:,0] < self.resolution[1]) & (pp[:,1] > 0) & (pp[:,1] < self.resolution[0]))[0] # indices of points in frame
             # combine 
             idx = np.intersect1d(idx_in_frame, idx_front)
+            idx = np.intersect1d(idx, idx_in_range)
             # now, out of the projected points we create a list of point pairs, which we can use to draw the lines
             list_of_pairs_for_layer = [(pp[e[0],:], pp[e[1],:]) for e in edges if e[0] in idx or e[1] in idx]
             
