@@ -12,6 +12,7 @@ class Camera():
         self.orientation = camera_config.get('orientation', [0,0,0])
         self.fov = camera_config.get('fov', 90)
         self.max_range = camera_config.get('max_range', None)
+        self.line_thickness = camera_config.get('line_thickness', 1)
 
         self.E = self.__get_extrinsic_matrix()
         self.K = self.__get_intrinsic_matrix()
@@ -94,7 +95,7 @@ class Camera():
         frame = np.zeros(self.resolution + [3], dtype=np.uint8)
         for point, color in zip(points, colors):
             for line in point:
-                frame = cv2.polylines(frame, np.int32([line]), False, color, 1)
+                frame = cv2.polylines(frame, np.int32([line]), False, color, self.line_thickness)
         return frame
 
     def __transform_into_camera_frame(self, points, extrinsic_matrix):
