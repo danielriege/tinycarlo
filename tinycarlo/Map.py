@@ -87,6 +87,8 @@ class Map():
         """
         random_node_idx = random.randint(0, len(self.trajectories[self.current_track]["nodes"])-1)
         next_node = self.__get_next_nodes(random_node_idx)
+        if len(next_node) == 0:
+            return self.sample_spawn()
         # calculate the angle between the two nodes
         position = self.trajectories[self.current_track]["nodes"][random_node_idx]
         next_position = self.trajectories[self.current_track]["nodes"][next_node[0]]
