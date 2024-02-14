@@ -1,27 +1,17 @@
 sim:
   fps: 30 # int
   render_realtime: True # boolean
-  step_limit: 1000 # int
-reward_design:
-  # if no custom reward handler is provided, the default reward handler with following parameters is used
-  polyline_handler:
-    - name: outer # string
-      reward: done # int or done (resets simulation)
-    - color: solid
-      reward: -1 
-  cross_track_error: False # boolean
 car:
   wheelbase: 0.06 # m
   track_width: 0.03 # m
   velocity: 0.01 # m/s
-cameras:
-  - id: front_camera
-    position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle (0 pitch is looking down)
-    orientation: [20,0,0] # [pitch,roll,yaw] in degrees
-    resolution: [480,640] # [height, width] in px
-    fov: 90 # in degrees
-    max_range: 0.5 # in m (can be None for infinite range)
-    line_thickness: 2 # in px
+camera:
+  position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle (0 pitch is looking down)
+  orientation: [20,0,0] # [pitch,roll,yaw] in degrees
+  resolution: [480,640] # [height, width] in px
+  fov: 90 # in degrees
+  max_range: 0.5 # in m (can be None for infinite range)
+  line_thickness: 2 # in px
 maps:
   - json_path: ./map.json # path to map file
     pixel_per_meter: 500

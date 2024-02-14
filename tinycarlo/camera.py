@@ -16,6 +16,8 @@ class Camera():
 
         self.E = self.__get_extrinsic_matrix()
         self.K = self.__get_intrinsic_matrix()
+
+        self.last_frame = None
     
     ######## 
     # For Visualisation
@@ -32,6 +34,9 @@ class Camera():
         T_M = self.car.get_transformation_matrix()
         transformed = [T_M.dot(pt) for pt in pts]
         return np.array(transformed)[:,:-1]
+    
+    def get_last_frame(self):
+        return self.last_frame
     
     def capture_frame(self):
         """
@@ -74,6 +79,7 @@ class Camera():
             polylines.append(list_of_pairs_for_layer)
         colors = self.map.get_colors()
         frame = self.__render_frame(polylines, colors)
+        self.last_frame = frame
         return frame
 
     def __point_on_line_at_z(self, p0, p1, target_z=-0.00001):

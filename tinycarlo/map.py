@@ -1,5 +1,4 @@
 import math
-import random
 import json
 from os import path
 
@@ -80,12 +79,12 @@ class Map():
         return self.dimensions[self.current_track]
 
 
-    def sample_spawn(self):
+    def sample_spawn(self, np_random):
         """
         Returns a random spawn point for the current track, as position, rotation
         Sampled from the nodes of trajectory graph
         """
-        random_node_idx = random.randint(0, len(self.trajectories[self.current_track]["nodes"])-1)
+        random_node_idx = np_random.integers(0, len(self.trajectories[self.current_track]["nodes"])-1, size=1, dtype=int)[0]
         next_node = self.__get_next_nodes(random_node_idx)
         if len(next_node) == 0:
             return self.sample_spawn()
@@ -103,20 +102,3 @@ class Map():
         Returns the next nodes in the graph given a node
         """
         return [e[1] for e in self.trajectories[self.current_track]["edges"] if e[0] == node]
-
-    # def transform(self, position, rotation):
-    #     '''
-    #     Transforms the track plane into wanted perspective.
-    #     position is a 2D vector and rotation is in rad.
-    #     '''
-    #     rows, cols = self.dimensions[self.current_track]
-    #     alpha = math.degrees(rotation)+90
-    #     R_M = np.concatenate((cv2.getRotationMatrix2D((cols//2, rows//2),alpha,1), np.array([[0,0,1]])))
-    #     T_M = np.float32([ [1,0,cols//2-position[0]], [0,1,rows//2-position[1]] , [0,0,1]])
-
-        
-    #     M = R_M @ T_M
-    #     self.transformed = cv2.warpAffine(self.tracks[self.current_track],M[:-1,:], (cols, rows))
-    
-    # def get_transformed(self):
-    #     return self.transformed

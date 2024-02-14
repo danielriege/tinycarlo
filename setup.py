@@ -13,7 +13,7 @@ setuptools.setup(
      url="https://github.com/danielriege/tinycarlo",
      packages=setuptools.find_packages(),
      install_requires=[
-        'gym>=0.21.0',
+        'gymnasium>=0.26.0',
         'numpy>=1.22.0',
         'opencv-python>=4.5.5.62',
         'setuptools>=60.3.1',

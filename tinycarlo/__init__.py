@@ -1,3 +1,3 @@
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 
-register(id="tinycarlo-v1", entry_point="tinycarlo.env:TinyCarloEnv")
+register(id="tinycarlo-v2", entry_point="tinycarlo.env:TinyCarloEnv")

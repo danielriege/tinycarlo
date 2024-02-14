@@ -12,14 +12,16 @@ class Car():
         self.wheelbase = car_config.get('wheelbase', 0.08)
         self.max_steering_change = car_config.get('max_steering_change', None)
         self.T = T
-        self.reset()
 
         self.wheel_offset = self.track_width/5 #from chassis
         self.wheel_length = self.wheelbase/3 
         self.wheel_width = self.wheel_length/6 
 
-    def reset(self):
-        self.position, self.rotation = self.map.sample_spawn()
+    def reset(self, np_random):
+        """
+        Resets the position to a random spawn point and sets the steering angle to 0
+        """
+        self.position, self.rotation = self.map.sample_spawn(np_random)
         self.steering_angle = 0.0
         self.steering_input = 0.0
         self.radius = 0.0
@@ -81,25 +83,6 @@ class Car():
         R_M = np.array([[math.cos(-self.rotation), -math.sin(-self.rotation),0, 0],[math.sin(-self.rotation), math.cos(-self.rotation),0, 0], [0,0,1,0], [0,0,0,1]])
         T_M = np.array([[1,0,0,-self.position[0]], [0,1,0,-self.position[1]], [0,0,1,0], [0,0,0,1]])
         return R_M @ T_M
-    
-    def check_colission(self, obstacles):
-        '''
-        Checks for colissions with road markings. None if no colission.
-        '''
-        start = time.time()
-        transformed = self.track.get_transformed()
-        rows, cols, _ = transformed.shape
-        x1 = cols//2-self.track_width//2
-        x2 = cols//2+self.track_width//2
-        y1 = rows//2-self.wheelbase
-        y2 = rows//2
-        croped = transformed[y1:y2,x1:x2,:]
-        colored_pixels = np.where(croped[:,:,:] > 50)
-        for obstacle in obstacles:
-            for y,x in zip(colored_pixels[0], colored_pixels[1]):
-                if (croped[y,x] == obstacle['color']).all():
-                    return obstacle['color']
-        return None
 
     # For Visualisation
 
