@@ -47,4 +47,4 @@ class Renderer():
         return overview
     
     def __scale_points(self, points: np.ndarray) -> np.ndarray:
-        return np.int32(points * self.overview_pixel_per_meter)
+        return np.int32(np.array([points]) * self.overview_pixel_per_meter)

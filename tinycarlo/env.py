@@ -49,8 +49,8 @@ class TinyCarloEnv(gym.Env):
         self.map: Map = Map(config['maps'], base_path=self.config_path)
         self.car: Car = Car(self.T, self.map, config['car'])
 
-        self.camera: Camera = Camera(self.map, self.car, config['camera'])
-        self.renderer: Renderer = Renderer(self.map, self.car, None)
+        self.renderer: Renderer = Renderer(self.map, self.car)
+        self.camera: Camera = Camera(self.map, self.car, self.renderer, config['camera'])
         self.loop_time: int = 1
         self.window: Optional[str] = None
         self.window_camera: Optional[str] = None
