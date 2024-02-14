@@ -1,31 +1,36 @@
 import numpy as np
 import cv2
 
+from typing import List, Tuple, Dict, Any, Optional
+
+Node = Tuple[int, int]
+Edge = Tuple[int, int]
+
 """
 Builds up a layer on the map. A layer consists of a graph which has nodes and edges. 
 Not all nodes have to be connected. We dont care about that, so it is possible to represent several closed graphs in one layer.
 image is the background image on which the layer is drawn.
 """
 class LayerBuilder:
-    def __init__(self, layer_name, layer_color, is_lane_path, image):
-        self.nodes = []
-        self.edges = []
-        self.layer_name = layer_name
-        self.layer_color = layer_color
-        self.image = image
-        self.is_lane_path = is_lane_path  
+    def __init__(self, layer_name: str, layer_color: Tuple[int, int, int], is_lane_path: bool, image: np.ndarray):
+        self.nodes: List[Node] = []
+        self.edges: List[Edge] = []
+        self.layer_name: str = layer_name
+        self.layer_color: Tuple[int, int, int] = layer_color
+        self.image: np.ndarray = image
+        self.is_lane_path: bool = is_lane_path  
 
-        self.select_node_threshold = 10
-        self.selected_node_idx = None
+        self.select_node_threshold: int = 10
+        self.selected_node_idx: Optional[int] = None
 
-    """
-    Renders the current layer to the background image.
-    This is needed to visualize dynamic changes to the layer like selected node etc.
-    This does all the drawing.
-    Should therefore be called in a loop.
-    Returns the rendered image, which also contains the background image.
-    """
-    def render_current_layer(self, final=False):
+    def render_current_layer(self, final: bool=False) -> np.ndarray:
+        """
+        Renders the current layer to the background image.
+        This is needed to visualize dynamic changes to the layer like selected node etc.
+        This does all the drawing.
+        Should therefore be called in a loop.
+        Returns the rendered image, which also contains the background image.
+        """
         render_image = self.image.copy() # Copy the image to not change the original
 
         for e in self.edges:
@@ -45,15 +50,15 @@ class LayerBuilder:
 
         return render_image
     
-    def render_final(self):
+    def render_final(self) -> np.ndarray:
         self.selected_node_idx = None
         return self.render_current_layer(final=True)
     
-    """
-    This should be called after bulding the layer is finished.
-    It returns a dictionary which contains the graph information.
-    """
-    def build_layer_dict(self):
+    def build_layer_dict(self) -> Tuple[str, Dict[str, Any]]:
+        """
+        This should be called after bulding the layer is finished.
+        It returns a dictionary which contains the graph information.
+        """
         layer_dict = {
             "layer_color": self.layer_color,
             "nodes": self.nodes,
@@ -61,20 +66,20 @@ class LayerBuilder:
         }
         return self.layer_name, layer_dict
 
-    """
-    Selects a node on the layer. This is used to select a node to add an edge to.
-    Given the coordinates the closest node is selected, if the distance is less than a threshold.
-    """
-    def select_node(self, x, y):
+    def select_node(self, x: int, y: int) -> None:
+        """
+        Selects a node on the layer. This is used to select a node to add an edge to.
+        Given the coordinates the closest node is selected, if the distance is less than a threshold.
+        """
         nearest_node_idx = self.find_nearest_node(x, y)
         if nearest_node_idx is not None:
             self.selected_node_idx = nearest_node_idx
 
-    """
-    Adds a new node to the layer. If a node is already selected, an edge is added between the selected node and the new node.
-    The new node is then selected.
-    """
-    def add_new_node(self, x, y):
+    def add_new_node(self, x: int, y: int) -> None:
+        """
+        Adds a new node to the layer. If a node is already selected, an edge is added between the selected node and the new node.
+        The new node is then selected.
+        """
         self.nodes.append((x, y))
         if self.selected_node_idx is not None:
             self.edges.append((self.selected_node_idx, len(self.nodes) - 1))
@@ -82,34 +87,38 @@ class LayerBuilder:
         # Select the new node
         self.selected_node_idx = len(self.nodes) - 1
 
-    def loop_closure(self, nearest_node_idx):
+    def loop_closure(self, nearest_node_idx: Optional[int]) -> None:
         if nearest_node_idx is not None:
             self.edges.append((self.selected_node_idx, nearest_node_idx))
 
-    """
-    Undoes the last action.
-    """
-    def undo(self):
+    def undo(self) -> None:
+        """
+        Undoes the last action.
+        """
         self.nodes.pop()
         self.edges.pop()
         self.selected_node_idx = len(self.nodes) - 1
 
-    """
-    Resets the layer to the initial state.
-    """
-    def reset(self):
+    def reset(self) -> None:
+        """
+        Resets the layer to the initial state.
+        """
         self.nodes = []
         self.edges = []
         self.selected_node_idx = None
 
-    """
-    Moves the selected node to the given coordinates.
-    """
-    def move_selected_node(self, x, y):
+    def move_selected_node(self, x: int, y: int) -> None:
+        """
+        Moves the selected node to the given coordinates.
+        """
         if self.selected_node_idx is not None:
             self.nodes[self.selected_node_idx] = (x, y)
 
-    def find_nearest_node(self, x,y):
+    def find_nearest_node(self, x: int,y: int) -> Optional[int]:
+        """
+        Finds the nearest node to the given coordinates.
+        If the distance is less than a threshold, the node index is returned.
+        """
         node_idx = None
         for i,n in enumerate(self.nodes):
             if np.linalg.norm(np.array(n) - np.array([x, y])) < self.select_node_threshold:

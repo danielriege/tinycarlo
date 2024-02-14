@@ -3,12 +3,14 @@ import sys
 import numpy as np
 import json
 
+from typing import List, Tuple, Dict, Any
+
 from mapbuilder.layer_builder import LayerBuilder
 
-layer_builders = []
-dragging = False
+layer_builders: List[LayerBuilder] = []
+dragging: bool = False
 
-colors = {
+colors: Dict[str, Tuple[int, int, int]] = {
     "red": (0, 0, 255),
     "green": (0, 255, 0),
     "blue": (255, 0, 0),
@@ -25,9 +27,9 @@ colors = {
 
 # Load an image to use as background
 if len(sys.argv) <= 2:
-    image = cv2.imread(sys.argv[1])  # Replace "background.jpg" with your image file path
+    image: np.ndarray = cv2.imread(sys.argv[1])  # Replace "background.jpg" with your image file path
 else:
-    image = np.zeros((512, 512, 3), np.uint8)  # Create a black image if no image file is provided
+    image: np.ndarray = np.zeros((512, 512, 3), np.uint8)  # Create a black image if no image file is provided
 
 # Mouse callback function
 def on_mouse(event, x, y, flags, params):
@@ -54,7 +56,7 @@ def on_mouse(event, x, y, flags, params):
     elif event == cv2.EVENT_MOUSEMOVE and dragging:
         lb.move_selected_node(x, y)
 
-def print_manual():
+def print_manual() -> None:
     print("============== Map Builder Manual ==============")
     print("Press 'q' to finish map building and quit (map saved as map.json)")
     print("Press 'n' to create new layer")
@@ -70,8 +72,8 @@ def print_manual():
     print("Note: You can use the mouse wheel to zoom and navigate the map.")
     print("================================================")
 
-def finish_map_building():
-    map_dict = {
+def finish_map_building() -> None:
+    map_dict: Dict[str, Any] = {
         "width": image.shape[1],
         "height": image.shape[0],
         "polylines": {},
@@ -89,7 +91,7 @@ def finish_map_building():
 
         
 
-def main():
+def main() -> None:
     global layer_builders, image, color_wheel, current_color_idx
     cv2.namedWindow("Map Builder", cv2.WINDOW_GUI_NORMAL)
     cv2.setMouseCallback("Map Builder", on_mouse)
@@ -97,16 +99,16 @@ def main():
     cv2.waitKey(1)
     print_manual()
 
-    run_map_building = True
+    run_map_building: bool = True
     
     while run_map_building:
-        layer_name = input("Enter layer name (Leave blank to finish map building): ")
+        layer_name: str = input("Enter layer name (Leave blank to finish map building): ")
         if layer_name == "":
             # Build the final map
             run_map_building = False
             break
-        is_path_line = True if input("Is this a lane path (Used for CTE calculation) ? (y/n): ").lower() == "y" else False
-        layer_color = (0, 0, 0)
+        is_path_line: bool = True if input("Is this a lane path (Used for CTE calculation) ? (y/n): ").lower() == "y" else False
+        layer_color: Tuple[int, int, int] = (0, 0, 0)
         if not is_path_line:
             layer_color = colors[input("Enter layer color (red, green, blue, yellow, magenta, cyan, white, purple, orange, pink, brown, gray): ").lower()]
         print("Now building layer: " + layer_name + " ...")

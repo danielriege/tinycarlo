@@ -1,28 +1,33 @@
 import math
 import numpy as np
 import cv2
+from typing import Any, List, Tuple, Dict, Optional
+
+from tinycarlo.map import Map, Node, LayerColor
+from tinycarlo.car import Car
+from tinycarlo.renderer import Renderer
 
 class Camera():
-    def __init__(self, map, car, camera_config):
-        self.map = map
-        self.car = car
-        self.resolution = camera_config.get('resolution', [128, 128])
-        self.position = camera_config.get('position', [0, 0, 0])
-        self.id = camera_config.get('id', 'unkown')
-        self.orientation = camera_config.get('orientation', [0,0,0])
-        self.fov = camera_config.get('fov', 90)
-        self.max_range = camera_config.get('max_range', None)
-        self.line_thickness = camera_config.get('line_thickness', 1)
+    def __init__(self, map: Map, car: Car, renderer: Renderer, camera_config: Dict[str, Any]):
+        self.map: Map = map
+        self.car: Car = car
+        self.renderer: Renderer = renderer
+        self.resolution: Tuple[int, int] = camera_config.get('resolution', [128, 128])
+        self.position: Tuple[float, float, float] = camera_config.get('position', [0, 0, 0])
+        self.orientation: Tuple[int, int, int] = camera_config.get('orientation', [0,0,0])
+        self.fov: int = camera_config.get('fov', 90)
+        self.max_range: float = camera_config.get('max_range', None)
+        self.line_thickness: int = camera_config.get('line_thickness', 1)
 
-        self.E = self.__get_extrinsic_matrix()
-        self.K = self.__get_intrinsic_matrix()
+        self.E: np.ndarray = self.__get_extrinsic_matrix()
+        self.K: np.ndarray = self.__get_intrinsic_matrix()
 
-        self.last_frame = None
+        self.last_frame: Optional[np.ndarray] = None
     
     ######## 
     # For Visualisation
     
-    def get_frame_points(self):
+    def get_frame_points(self) -> np.ndarray:
         # points are relative from middle of rear axcle. List of vectors
         base_y = self.car.wheelbase + self.position[0]
         pts = [
@@ -35,17 +40,17 @@ class Camera():
         transformed = [T_M.dot(pt) for pt in pts]
         return np.array(transformed)[:,:-1]
     
-    def get_last_frame(self):
+    def get_last_frame(self) -> Optional[np.ndarray]:
         return self.last_frame
     
-    def capture_frame(self):
+    def capture_frame(self) -> np.ndarray:
         """
         Captures a frame from the camera.
         """
-        polylines = []
+        polylines: List[List[Tuple[Node, Node]]] = []
         for nodes, edges in zip(self.map.get_nodes(), self.map.get_edges()):
             # expand the points to 3D by adding z = 0
-            points = np.column_stack((np.array(nodes), np.zeros((len(nodes), 1))))
+            points: np.ndarray = np.column_stack((np.array(nodes), np.zeros((len(nodes), 1))))
             
             camera_pose = self.E @ self.car.get_3d_transformation_matrix()
             points_camera_frame = self.__transform_into_camera_frame(points, camera_pose)
@@ -74,15 +79,16 @@ class Camera():
             idx = np.intersect1d(idx_in_frame, idx_front)
             idx = np.intersect1d(idx, idx_in_range)
             # now, out of the projected points we create a list of point pairs, which we can use to draw the lines
-            list_of_pairs_for_layer = [(pp[e[0],:], pp[e[1],:]) for e in edges if e[0] in idx or e[1] in idx]
+            list_of_pairs_for_layer: List[Tuple[Node, Node]] = [(pp[e[0],:], pp[e[1],:]) for e in edges if e[0] in idx or e[1] in idx]
             
             polylines.append(list_of_pairs_for_layer)
-        colors = self.map.get_colors()
-        frame = self.__render_frame(polylines, colors)
+        colors: List[LayerColor] = self.map.get_colors()
+        # Rendering RGB frame
+        frame: np.ndarray = self.renderer.render_camera_frame_rgb(polylines, colors, self.resolution, self.line_thickness)
         self.last_frame = frame
         return frame
 
-    def __point_on_line_at_z(self, p0, p1, target_z=-0.00001):
+    def __point_on_line_at_z(self, p0: np.ndarray, p1: np.ndarray, target_z: float = -0.00001) -> Optional[np.ndarray]:
         """
         In 3D camera frame, an edge can go through the camera. This function returns a point on the line at z = 0, 
         so the edge can correctly be projected to the image plane.
@@ -93,18 +99,8 @@ class Camera():
         t = (target_z - p1[2]) / direction[2]
         pz = p1 + t * direction
         return pz
-        
-    def __render_frame(self, points, colors):
-        """
-        Renders the frame from the camera.
-        """
-        frame = np.zeros(self.resolution + [3], dtype=np.uint8)
-        for point, color in zip(points, colors):
-            for line in point:
-                frame = cv2.polylines(frame, np.int32([line]), False, color, self.line_thickness)
-        return frame
 
-    def __transform_into_camera_frame(self, points, extrinsic_matrix):
+    def __transform_into_camera_frame(self, points: np.ndarray, extrinsic_matrix: np.ndarray) -> np.ndarray:
         """
         Transforms the points from world coordinate system into camera coordinate system.
         z-axis is pointing behind the camera!
@@ -113,7 +109,7 @@ class Camera():
         # transform points into camera coordinate system
         return (extrinsic_matrix @ points_3d_homogeneous.T).T
     
-    def __project_to_image_plane(self, points_camera_frame, intrinsic_matrix):
+    def __project_to_image_plane(self, points_camera_frame: np.ndarray, intrinsic_matrix: np.ndarray) -> np.ndarray:
         """
         Projects the points onto the image plane.
         The points are expected to be in camera frame and in homogeneous coordinates.
@@ -125,7 +121,7 @@ class Camera():
         return points_2d_normalized[:2].T
 
     
-    def __get_extrinsic_matrix(self):
+    def __get_extrinsic_matrix(self) -> np.ndarray:
         """
         Returns the extrinsic matrix of the camera.
         """
@@ -138,7 +134,7 @@ class Camera():
         translation_matrix = np.column_stack((np.eye(3), -np.array(self.position)))
         return rotation_matrix_pr @ rotation_matrix_y @ translation_matrix
     
-    def __get_intrinsic_matrix(self):
+    def __get_intrinsic_matrix(self) -> np.ndarray:
         """
         Returns the intrinsic matrix of the camera.
         """
@@ -151,7 +147,7 @@ class Camera():
             [0, 0, 1]
         ])
 
-    def __focal_lengths_from_fov(self, fov_deg, resolution):
+    def __focal_lengths_from_fov(self, fov_deg: int, resolution: Tuple[int, int]) -> Tuple[float, float]:
         """
         Returns the focal lengths from the field of view and resolution.
         """
