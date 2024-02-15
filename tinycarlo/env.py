@@ -10,13 +10,7 @@ from tinycarlo.renderer import Renderer
 from tinycarlo.car import Car
 from tinycarlo.map import Map
 from tinycarlo.camera import Camera
-
-def getEnv(key: str) -> bool:
-    if os.environ.get(key) is not None:
-        v = os.environ.get(key)
-        if v.lower() == '1':
-            return True
-    return False
+from tinycarlo.helper import getenv
 
 class TinyCarloEnv(gym.Env):
     metadata: Dict[str, list] = {"render_modes": ["human", "rgb_array"]}
@@ -61,8 +55,8 @@ class TinyCarloEnv(gym.Env):
         """
         Gym specific setup of action and observation space
         """
-        # action space: (velocity, steering angle)
-        self.action_space: gym.spaces.Box = gym.spaces.Box(-1, 1, shape=(1,))
+        # action space: {"car_control": [velocity, steering_angle], "maneuver": discrete maneuver (straight, right, u-turn, left)}
+        self.action_space: gym.spaces.Dict = gym.spaces.Dict({"car_control": gym.spaces.Box(-1, 1, shape=(2,), dtype=np.float32), "maneuver": gym.spaces.Discrete(4)})
         # observation space: camera views
         self.observation_space: gym.spaces.Box = gym.spaces.Box(low=0, high=255, shape=self.camera.resolution + [3,], dtype=np.uint8)
 
@@ -72,7 +66,8 @@ class TinyCarloEnv(gym.Env):
         return self.camera.capture_frame()
     
     def __get_info(self) -> Dict[str, Any]:
-        return {}
+        cte, heading_error = self.car.get_info()
+        return {"cte": cte, "heading_error": heading_error}
     
     def __default_reward(self, cte: float) -> float: 
         """
@@ -86,7 +81,7 @@ class TinyCarloEnv(gym.Env):
         """
         Default termination condition based on cte.
         """
-        return cte > (self.car.track_width * 4)
+        return cte > (self.car.track_width * 10)
 
     def reset(self, seed: Optional[int] = None, options: Optional[Any] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
         # We need the following line to seed self.np_random
@@ -102,22 +97,23 @@ class TinyCarloEnv(gym.Env):
 
         return observation, info
 
-    def step(self, action: Union[np.ndarray, list]) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+    def step(self, action: Union[gym.spaces.Dict, Dict[str, Any]]) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         start: float = time.time()
-
-        self.car.step(0.0001, action[0])
+        # clip car_control to action space
+        car_control: np.ndarray = np.clip(action["car_control"], self.action_space["car_control"].low, self.action_space["car_control"].high)
+        # convert maneuver discrete action into rad angle
+        maneuver_dir: float = action["maneuver"] * np.pi/2
+        self.car.step(car_control[0], car_control[1], maneuver_dir)
 
         observation: np.ndarray = self.__get_obs()
         info: Dict[str: Any] = self.__get_info()
-
-        # Cross Track Error
-        cte: int = 0
 
         """
         This is the default reward and termination condition.
         To change reward and termination, use tinycarlo.wrappers or define a custom wrapper.
         info can be useful to calculate more complex rewards or termination conditions.
         """
+        cte, _ = self.car.get_info()
         reward: float = self.__default_reward(cte)
         terminated: bool = self.__default_termination(cte)
 
@@ -126,7 +122,7 @@ class TinyCarloEnv(gym.Env):
 
         # for debugging performance
         self.loop_time: float = time.time() - start
-        if getEnv("DEBUG"):
+        if getenv("DEBUG"):
             print(f"Step time: {self.loop_time/1000:.6f} ms")
 
         return observation, reward, terminated, False, info

@@ -2,13 +2,15 @@ import math
 import numpy as np
 import cv2
 from typing import Any, List, Tuple, Dict, Optional
-from tinycarlo.map import Map, Node
+from tinycarlo.map import Map
 
 class Car():
     def __init__(self, T: float, map: Map, car_config: Dict[str, Any]):
         self.map: Map = map
         self.track_width: float = car_config.get('track_width', 0.03)
         self.wheelbase: float = car_config.get('wheelbase', 0.08)
+        self.max_velocity: float = car_config.get('max_velocity', 1)
+        self.max_steering_angle: float = car_config.get('max_steering_angle', 35)
         self.max_steering_change: Optional[float] = car_config.get('max_steering_change', None)
         self.T: float = T
 
@@ -16,27 +18,47 @@ class Car():
         self.wheel_length: float = self.wheelbase/3 
         self.wheel_width: float = self.wheel_length/6 
 
-        self.position: Node
+        self.position: Tuple[float, float] # position of middle of rear axcle
+        self.position_front: Tuple[float, float] # position of middle of front axcle
         self.rotation: float
+        self.nearest_edge: Tuple[int, int] # index of the nearest node on trajectory graph
         self.steering_angle: float
         self.steering_input: float
         self.radius: float
+        self.cte: float = 0
+        self.heading_error: float = 0
 
     def reset(self, np_random: Any) -> None:
         """
         Resets the position to a random spawn point and sets the steering angle to 0
         """
-        self.position, self.rotation = self.map.sample_spawn(np_random)
+        self.position, self.rotation, self.nearest_edge = self.map.sample_spawn(np_random)
+        self.__update_position_front()
         self.steering_angle = 0.0
         self.steering_input = 0.0
         self.radius = 0.0
+        self.cte = 0
+        self.heading_error = 0
 
-    def step(self, fwd_vel: float, steering_angle: float) -> None:
+    def get_info(self) -> Tuple[float, float]:
+        """
+        Returns the cross track error and the heading error
+        """
+        return self.cte, self.heading_error
+
+    def step(self, velocity: float, steering_angle: float, maneuver_dir: float) -> None:
+        """
+        Simulate one time step of the car given a velocity and a steering angle in [-1,1] range.
+        Actual value depends on configured max_velocity and max_steering_angle.
+        """
         dt: float = self.T
 
-        fwd_vel *= 1 # max is 1 m/s
+        # clip velocity
+        velocity *= self.max_velocity
         self.steering_input = steering_angle
-        new_steering_angle: float = steering_angle * 33 # max steering is 33 degree
+        # c;ip steering angle
+        new_steering_angle: float = steering_angle * self.max_steering_angle
+
         if self.max_steering_change is None:
             self.steering_angle = new_steering_angle
         else:
@@ -51,11 +73,11 @@ class Car():
         if self.steering_angle == 0:
             self.radius = 0
 
-            self.position[0] = self.position[0] + fwd_vel * vxn * dt * 1000
-            self.position[1] = self.position[1] + fwd_vel * vyn * dt * 1000
+            self.position[0] = self.position[0] + velocity * vxn * dt * 1000
+            self.position[1] = self.position[1] + velocity * vyn * dt * 1000
         else:
             self.radius = self.wheelbase/1000 / (math.tan(math.radians(self.steering_angle)))
-            ang_vel: float = fwd_vel / self.radius
+            ang_vel: float = velocity / self.radius
             dyaw: float = ang_vel * dt
 
             nx: float = vyn # normalvector
@@ -72,6 +94,17 @@ class Car():
             self.position[1] = self.position[1] - ty + rotated_vec[1]
         
             self.rotation += dyaw
+        self.__update_position_front()
+
+        # update nearest node
+        # position for following calculations needs to be of middle of front axcle
+        maneuver_dir_world_frame = (self.rotation + maneuver_dir)
+        if maneuver_dir_world_frame > math.pi:
+            maneuver_dir_world_frame -= 2 * math.pi
+        elif maneuver_dir_world_frame < -math.pi:
+            maneuver_dir_world_frame += 2 * math.pi
+        self.nearest_edge = self.map.get_nearest_edge(self.position_front, self.nearest_edge, maneuver_dir_world_frame)
+        self.cte, self.heading_error = self.map.get_cte_and_headingerror(self.position_front, self.rotation, *self.nearest_edge)
 
     def get_transformation_matrix(self) -> np.ndarray:
         ''' 
@@ -88,6 +121,9 @@ class Car():
         R_M: np.ndarray = np.array([[math.cos(-self.rotation), -math.sin(-self.rotation),0, 0],[math.sin(-self.rotation), math.cos(-self.rotation),0, 0], [0,0,1,0], [0,0,0,1]])
         T_M: np.ndarray = np.array([[1,0,0,-self.position[0]], [0,1,0,-self.position[1]], [0,0,1,0], [0,0,0,1]])
         return R_M @ T_M
+    
+    def __update_position_front(self) -> None:
+        self.position_front = (self.position[0] + self.wheelbase * math.cos(self.rotation), self.position[1] + self.wheelbase * math.sin(self.rotation))
 
     # For Visualisation
 
