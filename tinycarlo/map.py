@@ -54,6 +54,11 @@ class Map():
                 nodes[0] = nodes[0] / pixel_per_meter
                 nodes[1] = nodes[1] / pixel_per_meter
 
+    def get_layer_names(self) -> List[str]:
+        """
+        Returns the layer names of the current map
+        """
+        return list(self.maps[self.current_track].keys())
     
     def get_polylines(self) -> Tuple[List[List[Tuple[Node, Node]]], List[LayerColor]]:
         """
@@ -67,6 +72,13 @@ class Map():
         polylines = [[(p["nodes"][e[0]], p["nodes"][e[1]]) for e in p["edges"]] for p in map_data.values()]
         colors = [polyline_dict["layer_color"] for polyline_dict in map_data.values()]
         return polylines, colors
+    
+    def get_trajectorie_polylines(self) -> List[Tuple[Node, Node]]:
+        """
+        Returns the polylines needed to render the trajectory graph.
+        """
+        t = self.trajectories[self.current_track]
+        return [(t["nodes"][e[0]], t["nodes"][e[1]]) for e in t["edges"]]
     
     def get_nodes(self) -> List[List[Node]]:
         """
@@ -98,7 +110,22 @@ class Map():
         """
         return self.dimensions[self.current_track]
     
-    def get_nearest_edge(self, position: Tuple[float, float], current_edge: int, orientation: Optional[float] = None) -> Tuple[int, int]:
+    def get_nearest_edge(self, position: Tuple[float, float], layer_name: Optional[str] = None) -> Tuple[int, int]:
+        """
+        Returns the nearest edge to the position. 
+
+        if layer_name is None, the edge is assumed to be in the trajectory graph. Otherwise, it is assumed to be in the map graph and the layer_name is used to get the correct graph.
+        """
+        if layer_name is None:
+            edges = self.trajectories[self.current_track]["edges"]
+            nodes = self.trajectories[self.current_track]["nodes"]
+        else:
+            edges = self.maps[self.current_track][layer_name]["edges"]
+            nodes = self.maps[self.current_track][layer_name]["nodes"]
+        d = [abs(self.__distance(position, nodes[e[0]])) + abs(self.__distance(position, nodes[e[1]])) for e in edges]
+        return edges[d.index(min(d))]
+    
+    def get_nearest_edge_near_current(self, position: Tuple[float, float], current_edge: int, orientation: Optional[float] = None) -> Tuple[int, int]:
         """
         Given a current edge, returns the nearest edge to the position. So its either the current (if the closest) or one of the connected edges.
         Optional: Edges can have multiple connections, so the orientation can be used to determine the next edge.
@@ -113,19 +140,31 @@ class Map():
         d1 = self.__distance(position, self.trajectories[self.current_track]["nodes"][current_edge[1]])
         dn = self.__distance(position, self.trajectories[self.current_track]["nodes"][next_node])
         dp = self.__distance(position, self.trajectories[self.current_track]["nodes"][prev_node])
-        if dn < dp:
-            return (current_edge[1], next_node)
-        elif dp < d0:
-            return (prev_node, current_edge[0])
+        # return the edge in front of the car (or previous if the car is driving backwards)
+        if dn < d0 and dn < d1:
+            return current_edge[1], next_node
+        elif dp < d0 and dp < d1:
+            return prev_node, current_edge[0]
         else:
             return current_edge
+        
+    def orientation_of_edge(self, edge: Tuple[int, int]) -> float:
+        """
+        Returns the orientation of the edge in radians
+        """
+        n1, n2 = self.trajectories[self.current_track]["nodes"][edge[0]], self.trajectories[self.current_track]["nodes"][edge[1]]
+        return math.atan2(n2[1]-n1[1], n2[0]-n1[0])
     
-    def get_cte_and_headingerror(self, position: Tuple[float, float], rotation: float, n1_idx: int, n2_idx: int) -> Tuple[float, float]:
+    def angle_diff_to_edge(self, rotation: float, edge: Tuple[int, int], layer_name: Optional[str] = None) -> float:
         """
-        Given a position and rotation, returns the cross track error and the heading error to the line between n1 and n2.
-        rotation is expected in radians.
+        Calculates the angle difference from a position to an edge.
+
+        if layer_name is None, the edge is assumed to be in the trajectory graph. Otherwise, it is assumed to be in the map graph and the layer_name is used to get the correct graph.
         """
-        n1, n2 = self.trajectories[self.current_track]["nodes"][n1_idx], self.trajectories[self.current_track]["nodes"][n2_idx]
+        if layer_name is None:
+            n1, n2 = self.trajectories[self.current_track]["nodes"][edge[0]], self.trajectories[self.current_track]["nodes"][edge[1]]
+        else:
+            n1, n2 = self.maps[self.current_track][layer_name]["nodes"][edge[0]], self.maps[self.current_track][layer_name]["nodes"][edge[1]]
         # calculate the angle between the two nodes
         angle = math.atan2(n2[1]-n1[1], n2[0]-n1[0])
         # calculate the angle between the car and the line between the two nodes
@@ -134,12 +173,23 @@ class Map():
             angle_diff += 2*math.pi
         if angle_diff > math.pi:
             angle_diff -= 2*math.pi
-        # calculate the distance between the car and the line between the two nodes
+        return angle_diff
+    
+    def distance_to_edge(self, position: Tuple[float, float], edge: Tuple[int, int], layer_name: Optional[str] = None) -> float:
+        """
+        Calculates the distance from a position to an edge.
+
+        if layer_name is None, the edge is assumed to be in the trajectory graph. Otherwise, it is assumed to be in the map graph and the layer_name is used to get the correct graph.
+        """
+        if layer_name is None:
+            n1, n2 = self.trajectories[self.current_track]["nodes"][edge[0]], self.trajectories[self.current_track]["nodes"][edge[1]]
+        else:
+            n1, n2 = self.maps[self.current_track][layer_name]["nodes"][edge[0]], self.maps[self.current_track][layer_name]["nodes"][edge[1]]
         line_vector = (n2[0]-n1[0], n2[1]-n1[1])
         position_vector = (position[0]-n1[0], position[1]-n1[1])
         # Calculate the perpendicular distance from point P to the line
         cte = position_vector[0]*line_vector[1] - position_vector[1]*line_vector[0] / math.sqrt(line_vector[0]**2 + line_vector[1]**2)
-        return cte, angle_diff
+        return cte
         
     def sample_spawn(self, np_random: Any) -> Tuple[Node, float, int]:
         """
@@ -170,7 +220,9 @@ class Map():
         n = self.trajectories[self.current_track]["nodes"][node_idx]
         next_nodes = self.__get_next_nodes(node_idx)
         if len(next_nodes) == 0:
-            return next_nodes[0]       
+            return node_idx
+        if len(next_nodes) <= 1:
+            return next_nodes[0]      
         orientations_per_edge = [math.atan2(next[1]-n[1], next[0]-n[0]) for next in [self.trajectories[self.current_track]["nodes"][nn] for nn in next_nodes]]
         # get idx of the edge with the closest orientation to the car
         idx = min(range(len(orientations_per_edge)), key=lambda i: abs(orientations_per_edge[i]-orientation))

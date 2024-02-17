@@ -67,7 +67,10 @@ class TinyCarloEnv(gym.Env):
     
     def __get_info(self) -> Dict[str, Any]:
         cte, heading_error = self.car.get_info()
-        return {"cte": cte, "heading_error": heading_error}
+        car_position = self.car.position
+        car_orientation = self.car.rotation
+        car_distances = self.car.distances
+        return {"cte": cte, "heading_error": heading_error, "car_position": car_position, "car_orientation": car_orientation, "car_distances": car_distances}
     
     def __default_reward(self, cte: float) -> float: 
         """

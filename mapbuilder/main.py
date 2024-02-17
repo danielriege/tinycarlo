@@ -26,7 +26,7 @@ colors: Dict[str, Tuple[int, int, int]] = {
 }
 
 # Load an image to use as background
-if len(sys.argv) <= 2:
+if len(sys.argv) == 2:
     image: np.ndarray = cv2.imread(sys.argv[1])  # Replace "background.jpg" with your image file path
 else:
     image: np.ndarray = np.zeros((512, 512, 3), np.uint8)  # Create a black image if no image file is provided
@@ -70,6 +70,7 @@ def print_manual() -> None:
     print("   Right click to select a node")
     print("   Right click and drag to move a node")
     print("Note: You can use the mouse wheel to zoom and navigate the map.")
+    print("It is recommended to not make the distance between nodes bigger than roughly 4 car lengths.")
     print("================================================")
 
 def finish_map_building() -> None:

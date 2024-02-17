@@ -22,23 +22,27 @@ class Car():
         self.position_front: Tuple[float, float] # position of middle of front axcle
         self.rotation: float
         self.nearest_edge: Tuple[int, int] # index of the nearest node on trajectory graph
+        self.next_edge: Optional[Tuple[int, int]] # index of the next edge on trajectory graph (connected to nearest_edge)
         self.steering_angle: float
         self.steering_input: float
         self.radius: float
         self.cte: float = 0
         self.heading_error: float = 0
+        self.distances: Dict[str, float] = {} # distances to the nearest edge and next edge
 
     def reset(self, np_random: Any) -> None:
         """
         Resets the position to a random spawn point and sets the steering angle to 0
         """
         self.position, self.rotation, self.nearest_edge = self.map.sample_spawn(np_random)
+        self.next_edge = None
         self.__update_position_front()
         self.steering_angle = 0.0
         self.steering_input = 0.0
         self.radius = 0.0
         self.cte = 0
         self.heading_error = 0
+        self.distances = {k:0 for k in self.map.get_layer_names()}
 
     def get_info(self) -> Tuple[float, float]:
         """
@@ -94,17 +98,31 @@ class Car():
             self.position[1] = self.position[1] - ty + rotated_vec[1]
         
             self.rotation += dyaw
-        self.__update_position_front()
-
-        # update nearest node
-        # position for following calculations needs to be of middle of front axcle
-        maneuver_dir_world_frame = (self.rotation + maneuver_dir)
+            if self.rotation > math.pi:
+                self.rotation -= 2 * math.pi
+            elif self.rotation < -math.pi:
+                self.rotation += 2 * math.pi
+        # calculate heading and cross track error by first updating nearest edge and next edge
+        rotation_of_nearest_edge: float = self.map.orientation_of_edge(self.nearest_edge)
+        maneuver_dir_world_frame = (rotation_of_nearest_edge + maneuver_dir)
         if maneuver_dir_world_frame > math.pi:
             maneuver_dir_world_frame -= 2 * math.pi
         elif maneuver_dir_world_frame < -math.pi:
             maneuver_dir_world_frame += 2 * math.pi
-        self.nearest_edge = self.map.get_nearest_edge(self.position_front, self.nearest_edge, maneuver_dir_world_frame)
-        self.cte, self.heading_error = self.map.get_cte_and_headingerror(self.position_front, self.rotation, *self.nearest_edge)
+
+        self.__update_position_front()
+        self.nearest_edge = self.map.get_nearest_edge_near_current(self.position_front, self.nearest_edge, maneuver_dir_world_frame)
+        if velocity > 0:
+            self.next_edge = self.nearest_edge[1], self.map.get_next_node(self.nearest_edge[1], maneuver_dir_world_frame)
+        else:
+            self.next_edge = self.nearest_edge[0], self.map.get_prev_node(self.nearest_edge[0], maneuver_dir_world_frame)
+        self.cte = self.map.distance_to_edge(self.position_front, self.next_edge)
+        self.heading_error = self.map.angle_diff_to_edge(self.rotation, self.next_edge)
+
+        # calculate distances to nearest and next edge
+        for layer in self.map.get_layer_names():
+            nearest_edge = self.map.get_nearest_edge(self.position_front, layer_name=layer)
+            self.distances[layer] = abs(self.map.distance_to_edge(self.position_front, nearest_edge, layer_name=layer))
 
     def get_transformation_matrix(self) -> np.ndarray:
         ''' 

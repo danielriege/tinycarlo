@@ -24,10 +24,9 @@ class Renderer():
             image = cv2.polylines(image, self.__scale_points(wheel), False, (255,0,255), np.int32(self.car.wheel_width * self.overview_pixel_per_meter))
 
         # car trajectory render
-        if getenv("DEBUG") and self.car.nearest_edge is not None:
-            nearest_edge_from_car = self.car.nearest_edge
+        if getenv("DEBUG") and self.car.next_edge is not None:
+            nearest_edge_from_car = self.car.next_edge
             image = cv2.polylines(image, self.__scale_points([self.map.get_trajectory_nodes()[nearest_edge_from_car[i]] for i in range(2)] + [self.car.position_front]), True, (255,0,0), 3)
-
 
         return image
     
@@ -51,6 +50,11 @@ class Renderer():
         for polyline, color in zip(*self.map.get_polylines()):
             for line in polyline:
                 overview = cv2.polylines(overview, self.__scale_points(line), False, color, 3)
+        
+         # render car paths
+        path = self.map.get_trajectorie_polylines()
+        for line in path:
+            overview = cv2.polylines(overview, self.__scale_points(line), False, (50,50,50), 3)
         return overview
     
     def __scale_points(self, points: np.ndarray) -> np.ndarray:
