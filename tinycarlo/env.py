@@ -66,11 +66,8 @@ class TinyCarloEnv(gym.Env):
         return self.camera.capture_frame()
     
     def __get_info(self) -> Dict[str, Any]:
-        cte, heading_error = self.car.get_info()
-        car_position = self.car.position
-        car_orientation = self.car.rotation
-        car_distances = self.car.distances
-        return {"cte": cte, "heading_error": heading_error, "car_position": car_position, "car_orientation": car_orientation, "car_distances": car_distances}
+        cte, heading_error, distances = self.car.get_info()
+        return {"cte": cte, "heading_error": heading_error, "position": self.car.position, "orientation": self.car.rotation, "distances": distances}
     
     def __default_reward(self, cte: float) -> float: 
         """
@@ -116,7 +113,7 @@ class TinyCarloEnv(gym.Env):
         To change reward and termination, use tinycarlo.wrappers or define a custom wrapper.
         info can be useful to calculate more complex rewards or termination conditions.
         """
-        cte, _ = self.car.get_info()
+        cte, _, _ = self.car.get_info()
         reward: float = self.__default_reward(cte)
         terminated: bool = self.__default_termination(cte)
 
