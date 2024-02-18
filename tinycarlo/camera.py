@@ -48,7 +48,7 @@ class Camera():
         Captures a frame from the camera.
         """
         polylines: List[List[Tuple[Node, Node]]] = []
-        for nodes, edges in zip(self.map.get_nodes(), self.map.get_edges()):
+        for nodes, edges in zip(self.map.get_laneline_nodes(), self.map.get_laneline_edges()):
             # expand the points to 3D by adding z = 0
             points: np.ndarray = np.column_stack((np.array(nodes), np.zeros((len(nodes), 1))))
             
@@ -82,7 +82,7 @@ class Camera():
             list_of_pairs_for_layer: List[Tuple[Node, Node]] = [(pp[e[0],:], pp[e[1],:]) for e in edges if e[0] in idx or e[1] in idx]
             
             polylines.append(list_of_pairs_for_layer)
-        colors: List[LayerColor] = self.map.get_colors()
+        colors: List[LayerColor] = self.map.get_laneline_colors()
         # Rendering RGB frame
         frame: np.ndarray = self.renderer.render_camera_frame_rgb(polylines, colors, self.resolution, self.line_thickness)
         self.last_frame = frame

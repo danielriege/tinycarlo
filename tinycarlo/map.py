@@ -3,254 +3,183 @@ import json
 import os
 from typing import Dict, Any, Optional, List, Union, Tuple
 
+from tinycarlo.helper import clip_angle
+
 # Types as for a map json file
-Node = Tuple[float,float] # node is a tuple of x and y coordinates relative to the map frame
-Edge = Tuple[int,int] # edge is a tuple of two node indices
-LayerColor = Tuple[int,int,int]
-Layer = Dict[str, Union[List[Node], List[Edge], LayerColor]] # key is either "nodes", "edges" or "layer_color"
-Polylines = Dict[str, Layer] # key is the layer name
-Trajectory = Layer # a trajectory has the same type as layer, only meaning is different
-Trajectories = Dict[str, Trajectory] # key is the lane_path/layer name
-MapData = Dict[str, Union[float, Polylines, Trajectories]] # key is either "height", "width", "polylines" or "lane_paths" (for trajectories)
+Node = Tuple[float,float] # node is a tuple of x and y coordinates relative to the map frame in meters
+NodeIdx = int # node index
+Edge = Tuple[NodeIdx,NodeIdx] # edge is a tuple of two node indices
+LayerColor = Tuple[int,int,int] # RGB color tuple in range 0-255
 
-class Map():
-    def __init__(self, map_config: Dict[str, Any], base_path: Optional[str] = None):
-        self.current_track: int = 0
-        self.maps: List[Polylines] = [] # list of maps: each map is only a dict of nodes and edges per layer
-        self.dimensions: List[Tuple[float,float]] = [] # dimension for each map (height, width)
-        self.trajectories: List[Trajectory] = [] # trajectory graph for each map
+class Layer():
+    """
+    Represents a layer in the map. A layer is a graph of nodes and edges and has a color and name.
+    """
+    def __init__(self, name: str, color: LayerColor, nodes: List[Node], edges: List[Edge]) -> None:
+        self.name = name
+        self.color = color
+        self.nodes = nodes
+        self.edges = edges
 
-        if len(map_config) > 0:
-            for i_map_config in map_config:
-                if base_path is None:
-                    base_path = "./"
-                else:
-                    base_path = os.path.dirname(base_path)
-                map_path: Any = os.path.join(base_path, i_map_config["json_path"])
-                pixel_per_meter = i_map_config["pixel_per_meter"]
-                with open(map_path) as f:
-                    map_data: MapData = json.load(f)
-                    self.__change_scale(pixel_per_meter, map_data)
-                    self.maps.append(map_data["polylines"])
-                    self.dimensions.append((map_data["height"], map_data["width"]))
+    def get_edge_coordinates_list(self) -> List[Tuple[Node, Node]]:
+        """
+        Returns the edges as a list of tuples of node coordinates.
+        """
+        return [(self.nodes[e[0]], self.nodes[e[1]]) for e in self.edges]
+    
+    def get_edge_coordinates(self, edge: Edge) -> Tuple[Node, Node]:
+        """
+        Returns the coordinates of the given edge.
+        """
+        return self.nodes[edge[0]], self.nodes[edge[1]]
+    
+    def get_nearest_edge(self, position: Tuple[float, float]) -> Edge:
+        """
+        Returns the nearest edge to the given position.
 
-                    # map could contain multiple lane_paths. We only use the first one
-                    # TODO: support multiple lane_paths by flattening dicts
-                    lane_paths: Trajectories = map_data["lane_paths"]
-                    self.trajectories.append(lane_paths[list(lane_paths.keys())[0]])
-        else:
-            print("Error: No maps provided")
-            exit()
+        Args:
+            position (Tuple[float, float]): The position to find the nearest edge from in meters relative to map frame.
 
-    def __change_scale(self, pixel_per_meter: int, map_data: MapData) -> None:
-        map_data["height"] = map_data["height"] / pixel_per_meter
-        map_data["width"] = map_data["width"] / pixel_per_meter
-        for _, poly_layer in map_data["polylines"].items():
-            for nodes in poly_layer["nodes"]:
-                nodes[0] = nodes[0] / pixel_per_meter
-                nodes[1] = nodes[1] / pixel_per_meter
-        for _,graph in map_data["lane_paths"].items():
-            for nodes in graph["nodes"]:
-                nodes[0] = nodes[0] / pixel_per_meter
-                nodes[1] = nodes[1] / pixel_per_meter
+        Returns:
+            Edge: The nearest edge to the given position.
+        """
+        d = [abs(self.distance(position, self.nodes[e[0]]) + self.distance(position, self.nodes[e[1]])) for e in self.edges]
+        return self.edges[d.index(min(d))]
+    
+    def get_nearest_connected_edge(self, position: Tuple[float, float], edge: Edge, orientation: Optional[float] = None) -> Edge:
+        """
+        Returns the nearest connected edge to the given position.
 
-    def get_layer_names(self) -> List[str]:
-        """
-        Returns the layer names of the current map
-        """
-        return list(self.maps[self.current_track].keys())
-    
-    def get_polylines(self) -> Tuple[List[List[Tuple[Node, Node]]], List[LayerColor]]:
-        """
-        Returns the polylines needed to render the map.
+        Args:
+            position (Tuple[float, float]): The position to find the nearest connected edge from in meters relative to map frame.
+            edge (Edge): The current edge.
+            orientation (Optional[float], optional): The orientation of the edge in radians relative to map frame. Defaults to None.
 
-        Return value is a Tuple of two lists which can be zipped.
-        First list contains the polylines as list of tuples of nodes (node pairs).
-        Second list contains the colors for each polyline.
-        """
-        map_data = self.maps[self.current_track]
-        polylines = [[(p["nodes"][e[0]], p["nodes"][e[1]]) for e in p["edges"]] for p in map_data.values()]
-        colors = [polyline_dict["layer_color"] for polyline_dict in map_data.values()]
-        return polylines, colors
-    
-    def get_trajectorie_polylines(self) -> List[Tuple[Node, Node]]:
-        """
-        Returns the polylines needed to render the trajectory graph.
-        """
-        t = self.trajectories[self.current_track]
-        return [(t["nodes"][e[0]], t["nodes"][e[1]]) for e in t["edges"]]
-    
-    def get_nodes(self) -> List[List[Node]]:
-        """
-        Returns the nodes of the current map for polyline
-        """
-        return[p["nodes"] for p in self.maps[self.current_track].values()]
-    
-    def get_trajectory_nodes(self) -> List[Node]:
-        """
-        Returns the nodes of the current map for trajectory
-        """
-        return self.trajectories[self.current_track]["nodes"]
-    
-    def get_edges(self) -> List[List[Edge]]:
-        """
-        Returns the edges of the current map for polyline 
-        """
-        return[p["edges"] for p in self.maps[self.current_track].values()]
-    
-    def get_colors(self) -> List[LayerColor]:
-        """
-        Returns the colors of the current map for polyline 
-        """
-        return [polyline_dict["layer_color"] for polyline_dict in self.maps[self.current_track].values()]
-    
-    def get_map_size(self) -> Tuple[float,float]:
-        """
-        Returns the size of the current map as a tuple of (height, width)
-        """
-        return self.dimensions[self.current_track]
-    
-    def get_nearest_edge(self, position: Tuple[float, float], layer_name: Optional[str] = None) -> Tuple[int, int]:
-        """
-        Returns the nearest edge to the position. 
+        Returns:
+            Edge: The nearest connected edge.
 
-        if layer_name is None, the edge is assumed to be in the trajectory graph. Otherwise, it is assumed to be in the map graph and the layer_name is used to get the correct graph.
         """
-        if layer_name is None:
-            edges = self.trajectories[self.current_track]["edges"]
-            nodes = self.trajectories[self.current_track]["nodes"]
-        else:
-            edges = self.maps[self.current_track][layer_name]["edges"]
-            nodes = self.maps[self.current_track][layer_name]["nodes"]
-        d = [abs(self.__distance(position, nodes[e[0]])) + abs(self.__distance(position, nodes[e[1]])) for e in edges]
-        return edges[d.index(min(d))]
-    
-    def get_nearest_edge_near_current(self, position: Tuple[float, float], current_edge: int, orientation: Optional[float] = None) -> Tuple[int, int]:
-        """
-        Given a current edge, returns the nearest edge to the position. So its either the current (if the closest) or one of the connected edges.
-        Optional: Edges can have multiple connections, so the orientation can be used to determine the next edge.
-        """
-        if orientation is not None:
-            next_node = self.get_next_node(current_edge[1], orientation)
-            prev_node = self.get_prev_node(current_edge[0], orientation)
-        else:
-            next_node = self.__get_next_nodes(current_edge[1])[0]
-            prev_node = self.__get_prev_nodes(current_edge[0])[0]
-        d0 = self.__distance(position, self.trajectories[self.current_track]["nodes"][current_edge[0]])
-        d1 = self.__distance(position, self.trajectories[self.current_track]["nodes"][current_edge[1]])
-        dn = self.__distance(position, self.trajectories[self.current_track]["nodes"][next_node])
-        dp = self.__distance(position, self.trajectories[self.current_track]["nodes"][prev_node])
-        # return the edge in front of the car (or previous if the car is driving backwards)
+        next_nodes, prev_nodes = self.get_next_nodes(edge[1]), self.get_prev_nodes(edge[0])
+        next_node = self.pick_node_given_orientation(edge[1], orientation, next_nodes) if orientation is not None else next_nodes[0]
+        prev_node = self.pick_node_given_orientation(edge[0], orientation, prev_nodes) if orientation is not None else prev_nodes[0]
+
+        d0,d1 = self.distance(position, self.nodes[edge[0]]), self.distance(position, self.nodes[edge[1]])
+        dn, dp = self.distance(position, self.nodes[next_node]), self.distance(position, self.nodes[prev_node])
         if dn < d0 and dn < d1:
-            return current_edge[1], next_node
+            return edge[1], next_node
         elif dp < d0 and dp < d1:
-            return prev_node, current_edge[0]
+            return prev_node, edge[0]
         else:
-            return current_edge
-        
-    def orientation_of_edge(self, edge: Tuple[int, int]) -> float:
-        """
-        Returns the orientation of the edge in radians
-        """
-        n1, n2 = self.trajectories[self.current_track]["nodes"][edge[0]], self.trajectories[self.current_track]["nodes"][edge[1]]
-        return math.atan2(n2[1]-n1[1], n2[0]-n1[0])
+            return edge
     
-    def angle_diff_to_edge(self, rotation: float, edge: Tuple[int, int], layer_name: Optional[str] = None) -> float:
+    def pick_node_given_orientation(self, node_idx: NodeIdx, orientation: float, connected_nodes: List[NodeIdx]) -> Optional[NodeIdx]:
         """
-        Calculates the angle difference from a position to an edge.
+        Picks a node from the given list of connected nodes based on the closest orientation to the specified orientation.
 
-        if layer_name is None, the edge is assumed to be in the trajectory graph. Otherwise, it is assumed to be in the map graph and the layer_name is used to get the correct graph.
+        Args:
+            node_idx (NodeIdx): The index of the current node.
+            orientation (float): The target orientation in radians relative to map frame.
+            connected_nodes (List[NodeIdx]): The list of connected node indices.
+
+        Returns:
+            Optional[NodeIdx]: The index of the selected node, or None if the list is empty.
         """
-        if layer_name is None:
-            n1, n2 = self.trajectories[self.current_track]["nodes"][edge[0]], self.trajectories[self.current_track]["nodes"][edge[1]]
-        else:
-            n1, n2 = self.maps[self.current_track][layer_name]["nodes"][edge[0]], self.maps[self.current_track][layer_name]["nodes"][edge[1]]
-        # calculate the angle between the two nodes
-        angle = math.atan2(n2[1]-n1[1], n2[0]-n1[0])
-        # calculate the angle between the car and the line between the two nodes
-        angle_diff = angle - rotation
-        if angle_diff < -math.pi:
-            angle_diff += 2*math.pi
-        if angle_diff > math.pi:
-            angle_diff -= 2*math.pi
-        return angle_diff
+        if len(connected_nodes) == 0:
+            return None
+        if len(connected_nodes) <= 1:
+            return connected_nodes[0]
+        n = self.nodes[node_idx]
+        orientations_per_edge = [math.atan2(self.nodes[nn][1]-n[1], self.nodes[nn][0]-n[0]) for nn in connected_nodes]
+        idx = min(range(len(orientations_per_edge)), key=lambda i: abs(clip_angle(orientations_per_edge[i]-orientation)))
+        return connected_nodes[idx]
     
-    def distance_to_edge(self, position: Tuple[float, float], edge: Tuple[int, int], layer_name: Optional[str] = None) -> float:
+    def distance_to_edge(self, position: Tuple[float, float], edge: Edge) -> float:
         """
-        Calculates the distance from a position to an edge.
+        Calculates the perpendicular distance from a given position to an edge.
 
-        if layer_name is None, the edge is assumed to be in the trajectory graph. Otherwise, it is assumed to be in the map graph and the layer_name is used to get the correct graph.
+        Args:
+            position (Tuple[float, float]): The position coordinates (x, y) of the point in meters relative to map frame.
+            edge (Edge): The edge to calculate the perpendicular distance to.
+
+        Returns:
+            float: The perpendicular distance from the position to the edge.
         """
-        if layer_name is None:
-            n1, n2 = self.trajectories[self.current_track]["nodes"][edge[0]], self.trajectories[self.current_track]["nodes"][edge[1]]
-        else:
-            n1, n2 = self.maps[self.current_track][layer_name]["nodes"][edge[0]], self.maps[self.current_track][layer_name]["nodes"][edge[1]]
+        n1, n2 = self.nodes[edge[0]], self.nodes[edge[1]]
+        if n1 == n2:
+            print("Warning: Edge has zero length")
+            return self.distance(position, n1)
         line_vector = (n2[0]-n1[0], n2[1]-n1[1])
         position_vector = (position[0]-n1[0], position[1]-n1[1])
         # Calculate the perpendicular distance from point P to the line
-        cte = position_vector[0]*line_vector[1] - position_vector[1]*line_vector[0] / math.sqrt(line_vector[0]**2 + line_vector[1]**2)
-        return cte
+        return position_vector[0]*line_vector[1] - position_vector[1]*line_vector[0] / math.sqrt(line_vector[0]**2 + line_vector[1]**2)
+    
+    def orientation_of_edge(self, edge: Edge) -> float:
+        n1, n2 = self.nodes[edge[0]], self.nodes[edge[1]]
+        return math.atan2(n2[1]-n1[1], n2[0]-n1[0])
+
+    def get_next_nodes(self, node_idx: NodeIdx) -> List[NodeIdx]: return [e[1] for e in self.edges if e[0] == node_idx]
+    
+    def get_prev_nodes(self, node_idx: NodeIdx) -> List[NodeIdx]: return [e[0] for e in self.edges if e[1] == node_idx]
+    
+    def distance(self, node1: Node, node2: Node) -> float: return math.sqrt((node1[0]-node2[0])**2 + (node1[1]-node2[1])**2)
+
+class Map():
+    def __init__(self, map_config: Dict[str, Any], base_path: Optional[str] = None):
+        self.lanelines: List[Layer] = [] # list of Layers for the lanelines
+        self.lanepath: Optional[Layer] = None # Layer for the lanepath
+        self.dimension: Tuple[float,float] = (0,0) # dimension of the map (height, width) in meters
+
+        base_path = "./" if base_path is None else os.path.dirname(base_path)
+        map_path: Any = os.path.join(base_path, map_config["json_path"])
+        pixel_per_meter: int = map_config["pixel_per_meter"]
+        with open(map_path) as f:
+            map_data: Dict[str, Any] = json.load(f)
+            # map data in json is not scaled to meters, so we need to do it here
+            self.__change_scale(pixel_per_meter, map_data)
+            
+            self.lanelines = [Layer(name, layer["layer_color"], layer["nodes"], layer["edges"]) for name, layer in map_data["lanelines"].items()]
+            self.lanepath = Layer("lanepath", map_data["lanepath"]["layer_color"], map_data["lanepath"]["nodes"], map_data["lanepath"]["edges"])
+            self.dimension = (map_data["height"], map_data["width"])
+
+    def __change_scale(self, pixel_per_meter: int, map_data: Dict[str, Any]) -> None:
+        map_data["height"] = map_data["height"] / pixel_per_meter
+        map_data["width"] = map_data["width"] / pixel_per_meter
+        for _, poly_layer in map_data["lanelines"].items():
+            for nodes in poly_layer["nodes"]:
+                nodes[0] = nodes[0] / pixel_per_meter
+                nodes[1] = nodes[1] / pixel_per_meter
+        for nodes in map_data["lanepath"]["nodes"]:
+            nodes[0] = nodes[0] / pixel_per_meter
+            nodes[1] = nodes[1] / pixel_per_meter
+
+    def get_laneline_names(self) -> List[str]: return [layer.name for layer in self.lanelines]
+    
+    def get_lanelines(self) -> List[List[Tuple[Node, Node]]]: return [layer.get_edge_coordinates_list() for layer in self.lanelines]
+
+    def get_laneline_nodes(self) -> List[List[Node]]: return [layer.nodes for layer in self.lanelines]
+
+    def get_laneline_edges(self) -> List[List[Edge]]: return [layer.edges for layer in self.lanelines]
+
+    def get_lanepath(self) -> List[Tuple[Node, Node]]: return self.lanepath.get_edge_coordinates_list()
+    
+    def get_laneline_colors(self) -> List[LayerColor]: return [layer.color for layer in self.lanelines]
         
-    def sample_spawn(self, np_random: Any) -> Tuple[Node, float, int]:
+    def sample_spawn(self, np_random: Any) -> Tuple[Node, float, Edge]:
         """
-        Returns a random spawn point for the current track, as position, rotation
-        Sampled from the nodes of trajectory graph
+        Randomly samples a spawn position and rotation on the lane path.
+
+        Args:
+            np_random (Any): The random number generator.
+
+        Returns:
+            Tuple[Node, float, Edge]: A tuple containing the spawn position, rotation, and edge information.
         """
-        random_node_idx = np_random.integers(0, len(self.trajectories[self.current_track]["nodes"])-1, size=1, dtype=int)[0]
-        next_node = self.__get_next_nodes(random_node_idx)
+        random_node_idx: NodeIdx = np_random.integers(0, len(self.lanepath.nodes)-1, size=1, dtype=int)[0]
+        next_node = self.lanepath.get_next_nodes(random_node_idx)
         if len(next_node) == 0:
             return self.sample_spawn()
         # calculate the angle between the two nodes
-        position = self.trajectories[self.current_track]["nodes"][random_node_idx].copy()
-        next_position = self.trajectories[self.current_track]["nodes"][next_node[0]]
+        position = self.lanepath.nodes[random_node_idx].copy()
+        next_position = self.lanepath.nodes[next_node[0]]
         rotation = math.atan2(next_position[1]-position[1], next_position[0]-position[0])
         return position, rotation, (random_node_idx, next_node[0])
-    
-    def __distance(self, a: Node, b: Node) -> float:
-        """
-        Returns the distance between two nodes
-        """
-        return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
-    
-    def get_next_node(self, node_idx: int, orientation: float) -> int:
-        """
-        Returns the next node idx in the graph given a node index and an orientation.
-        orientation is expected to be in radians (relative to world frame).
-        """
-        n = self.trajectories[self.current_track]["nodes"][node_idx]
-        next_nodes = self.__get_next_nodes(node_idx)
-        if len(next_nodes) == 0:
-            return node_idx
-        if len(next_nodes) <= 1:
-            return next_nodes[0]      
-        orientations_per_edge = [math.atan2(next[1]-n[1], next[0]-n[0]) for next in [self.trajectories[self.current_track]["nodes"][nn] for nn in next_nodes]]
-        # get idx of the edge with the closest orientation to the car
-        idx = min(range(len(orientations_per_edge)), key=lambda i: abs(orientations_per_edge[i]-orientation))
-        return next_nodes[idx]
-    
-    def get_prev_node(self, node_idx: int, orientation: float) -> int:
-        """
-        Similar as get_next_node, but returns the previous node.
-        Note: Orientation will be reversed automatically.
-        """
-        orientation = orientation + math.pi
-        n = self.trajectories[self.current_track]["nodes"][node_idx]
-        prev_nodes = self.__get_prev_nodes(node_idx)
-        if len(prev_nodes) == 0:
-            return prev_nodes[0]        
-        orientations_per_edge = [math.atan2(prev[1]-n[1], prev[0]-n[0]) for prev in [self.trajectories[self.current_track]["nodes"][pn] for pn in prev_nodes]]
-        # get idx of the edge with the closest orientation to the car
-        idx = min(range(len(orientations_per_edge)), key=lambda i: abs(orientations_per_edge[i]-orientation))
-        return prev_nodes[idx]
-
-    def __get_next_nodes(self, node_idx: int) -> List[int]:
-        """
-        Returns the next node idxs in the graph given a node index
-        """
-        return [e[1] for e in self.trajectories[self.current_track]["edges"] if e[0] == node_idx]
-    
-    def __get_prev_nodes(self, node_idx: int) -> List[int]:
-        """
-        Returns the previous node idxs in the graph given a node index
-        """
-        return [e[0] for e in self.trajectories[self.current_track]["edges"] if e[1] == node_idx]

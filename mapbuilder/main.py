@@ -58,6 +58,9 @@ def on_mouse(event, x, y, flags, params):
 
 def print_manual() -> None:
     print("============== Map Builder Manual ==============")
+    print("This tool is used to build a map consisting of lanelines and a lanepaths.")
+    print("You can create multiple layers, each representing a different laneline or a lanepath, but only one lanepath is allowed.")
+    print("")
     print("Press 'q' to finish map building and quit (map saved as map.json)")
     print("Press 'n' to create new layer")
     print("   You will be prompted to enter the layer name. If left blank, map building will finish.")
@@ -77,15 +80,15 @@ def finish_map_building() -> None:
     map_dict: Dict[str, Any] = {
         "width": image.shape[1],
         "height": image.shape[0],
-        "polylines": {},
-        "lane_paths": {}
+        "lanelines": {},
+        "lanepath": {}
         }
     for lb in layer_builders:
         layer_name, layer_dict = lb.build_layer_dict()
         if lb.is_lane_path:
-            map_dict["lane_paths"][layer_name] = layer_dict
+            map_dict["lanepath"] = layer_dict
         else:
-            map_dict["polylines"][layer_name] = layer_dict
+            map_dict["lanelines"][layer_name] = layer_dict
     print("Map building finished. Saving map to map.json ...")
     with open("map.json", "w") as f:
         json.dump(map_dict, f)
@@ -103,15 +106,17 @@ def main() -> None:
     run_map_building: bool = True
     
     while run_map_building:
-        layer_name: str = input("Enter layer name (Leave blank to finish map building): ")
-        if layer_name == "":
-            # Build the final map
-            run_map_building = False
-            break
-        is_path_line: bool = True if input("Is this a lane path (Used for CTE calculation) ? (y/n): ").lower() == "y" else False
-        layer_color: Tuple[int, int, int] = (0, 0, 0)
+        is_path_line: bool = True if input("Is this the lanepath ? (y/n): ").lower() == "y" else False
         if not is_path_line:
+            layer_name: str = input("Enter layer name (Leave blank to finish map building): ")
+            if layer_name == "":
+                # Build the final map
+                run_map_building = False
+                break
             layer_color = colors[input("Enter layer color (red, green, blue, yellow, magenta, cyan, white, purple, orange, pink, brown, gray): ").lower()]
+        else:
+            layer_name = "lanepath"
+            layer_color = colors["gray"]
         print("Now building layer: " + layer_name + " ...")
 
         

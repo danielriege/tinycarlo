@@ -26,7 +26,7 @@ class Renderer():
         # car trajectory render
         if getenv("DEBUG") and self.car.next_edge is not None:
             nearest_edge_from_car = self.car.next_edge
-            image = cv2.polylines(image, self.__scale_points([self.map.get_trajectory_nodes()[nearest_edge_from_car[i]] for i in range(2)] + [self.car.position_front]), True, (255,0,0), 3)
+            image = cv2.polylines(image, self.__scale_points([self.map.lanepath.nodes[nearest_edge_from_car[i]] for i in range(2)] + [self.car.position_front]), True, (255,0,0), 3)
 
         return image
     
@@ -44,15 +44,15 @@ class Renderer():
         """
         Renders the static parts of the overview, which will only be rendered once.
         """
-        height, width = self.map.get_map_size()
+        height, width = self.map.dimension
         overview = np.zeros((int(height*self.overview_pixel_per_meter), int(width*self.overview_pixel_per_meter), 3), dtype=np.uint8)
         # Map render
-        for polyline, color in zip(*self.map.get_polylines()):
+        for polyline, color in zip(self.map.get_lanelines(), self.map.get_laneline_colors()):
             for line in polyline:
                 overview = cv2.polylines(overview, self.__scale_points(line), False, color, 3)
         
          # render car paths
-        path = self.map.get_trajectorie_polylines()
+        path = self.map.get_lanepath()
         for line in path:
             overview = cv2.polylines(overview, self.__scale_points(line), False, (50,50,50), 3)
         return overview

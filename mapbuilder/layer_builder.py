@@ -6,12 +6,13 @@ from typing import List, Tuple, Dict, Any, Optional
 Node = Tuple[int, int]
 Edge = Tuple[int, int]
 
-"""
-Builds up a layer on the map. A layer consists of a graph which has nodes and edges. 
-Not all nodes have to be connected. We dont care about that, so it is possible to represent several closed graphs in one layer.
-image is the background image on which the layer is drawn.
-"""
 class LayerBuilder:
+    """
+    Builds up a layer on the map. A layer consists of a graph which has nodes and edges. 
+    Not all nodes have to be connected. We dont care about that, so it is possible to represent several closed graphs in one layer.
+    image is the background image on which the layer is drawn.
+    """
+    
     def __init__(self, layer_name: str, layer_color: Tuple[int, int, int], is_lane_path: bool, image: np.ndarray):
         self.nodes: List[Node] = []
         self.edges: List[Edge] = []

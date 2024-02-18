@@ -40,7 +40,7 @@ class TinyCarloEnv(gym.Env):
         self.T: float = 1/self.fps
         self.render_realtime: bool = config['sim'].get('render_realtime', False)
 
-        self.map: Map = Map(config['maps'], base_path=self.config_path)
+        self.map: Map = Map(config['map'], base_path=self.config_path)
         self.car: Car = Car(self.T, self.map, config['car'])
 
         self.renderer: Renderer = Renderer(self.map, self.car)

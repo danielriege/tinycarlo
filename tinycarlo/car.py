@@ -2,7 +2,8 @@ import math
 import numpy as np
 import cv2
 from typing import Any, List, Tuple, Dict, Optional
-from tinycarlo.map import Map
+from tinycarlo.map import Map, Edge
+from tinycarlo.helper import clip_angle
 
 class Car():
     def __init__(self, T: float, map: Map, car_config: Dict[str, Any]):
@@ -21,8 +22,8 @@ class Car():
         self.position: Tuple[float, float] # position of middle of rear axcle
         self.position_front: Tuple[float, float] # position of middle of front axcle
         self.rotation: float
-        self.nearest_edge: Tuple[int, int] # index of the nearest node on trajectory graph
-        self.next_edge: Optional[Tuple[int, int]] # index of the next edge on trajectory graph (connected to nearest_edge)
+        self.nearest_edge: Edge # nearest edge on lanepath
+        self.next_edge: Optional[Edge] # next edge on lanepath connected to nearest edge
         self.steering_angle: float
         self.steering_input: float
         self.radius: float
@@ -42,7 +43,7 @@ class Car():
         self.radius = 0.0
         self.cte = 0
         self.heading_error = 0
-        self.distances = {k:0 for k in self.map.get_layer_names()}
+        self.distances = {k:0 for k in self.map.get_laneline_names()}
 
     def get_info(self) -> Tuple[float, float]:
         """
@@ -102,27 +103,27 @@ class Car():
                 self.rotation -= 2 * math.pi
             elif self.rotation < -math.pi:
                 self.rotation += 2 * math.pi
+        self.__calculate_info(velocity, maneuver_dir)
+
+    def __calculate_info(self, velocity: float, maneuver_dir: float) -> None:
         # calculate heading and cross track error by first updating nearest edge and next edge
-        rotation_of_nearest_edge: float = self.map.orientation_of_edge(self.nearest_edge)
-        maneuver_dir_world_frame = (rotation_of_nearest_edge + maneuver_dir)
-        if maneuver_dir_world_frame > math.pi:
-            maneuver_dir_world_frame -= 2 * math.pi
-        elif maneuver_dir_world_frame < -math.pi:
-            maneuver_dir_world_frame += 2 * math.pi
+        orientation_of_nearest_edge: float = self.map.lanepath.orientation_of_edge(self.nearest_edge)
+        maneuver_dir_world_frame = clip_angle((orientation_of_nearest_edge + maneuver_dir))
 
         self.__update_position_front()
-        self.nearest_edge = self.map.get_nearest_edge_near_current(self.position_front, self.nearest_edge, maneuver_dir_world_frame)
+        self.nearest_edge = self.map.lanepath.get_nearest_connected_edge(self.position_front, self.nearest_edge, maneuver_dir_world_frame)
         if velocity > 0:
-            self.next_edge = self.nearest_edge[1], self.map.get_next_node(self.nearest_edge[1], maneuver_dir_world_frame)
+            self.next_edge = self.nearest_edge[1], self.map.lanepath.pick_node_given_orientation(self.nearest_edge[1], maneuver_dir_world_frame, self.map.lanepath.get_next_nodes(self.nearest_edge[1]))
         else:
-            self.next_edge = self.nearest_edge[0], self.map.get_prev_node(self.nearest_edge[0], maneuver_dir_world_frame)
-        self.cte = self.map.distance_to_edge(self.position_front, self.next_edge)
-        self.heading_error = self.map.angle_diff_to_edge(self.rotation, self.next_edge)
+            self.next_edge = self.nearest_edge[0], self.map.lanepath.pick_node_given_orientation(self.nearest_edge[0], maneuver_dir_world_frame, self.map.lanepath.get_prev_nodes(self.nearest_edge[0]))
+        self.cte = self.map.lanepath.distance_to_edge(self.position_front, self.next_edge)
+        self.heading_error = clip_angle(self.map.lanepath.orientation_of_edge(self.next_edge) - self.rotation)
 
         # calculate distances to nearest and next edge
-        for layer in self.map.get_layer_names():
-            nearest_edge = self.map.get_nearest_edge(self.position_front, layer_name=layer)
-            self.distances[layer] = abs(self.map.distance_to_edge(self.position_front, nearest_edge, layer_name=layer))
+        for i,layer_name in enumerate(self.map.get_laneline_names()):
+            nearest_edge = self.map.lanelines[i].get_nearest_edge(self.position_front)
+            self.distances[layer_name] = abs(self.map.lanelines[i].distance_to_edge(self.position_front, nearest_edge))
+
 
     def get_transformation_matrix(self) -> np.ndarray:
         ''' 
