@@ -1,6 +1,7 @@
 sim:
   fps: 30 # int
   render_realtime: True # boolean
+  observation_space_format: rgb # "rgb" or "classes"
 car:
   wheelbase: 0.06 # m
   track_width: 0.03 # m

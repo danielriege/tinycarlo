@@ -4,7 +4,6 @@ from typing import List, Tuple
 
 from tinycarlo.map import Map, Node, LayerColor
 from tinycarlo.car import Car
-from tinycarlo.helper import getenv
 
 class Renderer():
     def __init__(self, map: Map, car: Car, overview_pixel_per_meter: int = 1000):
@@ -34,9 +33,16 @@ class Renderer():
         Renders RGB camera frame given np.array of points and colors.
         """
         frame = np.zeros(resolution + [3], dtype=np.uint8)
-        for point, color in zip(points, colors):
-            for line in point:
+        for layer, color in zip(points, colors):
+            for line in layer:
                 frame = cv2.polylines(frame, np.int32([line]), False, color, line_thickness)
+        return frame
+    
+    def render_camera_frame_classes(self, points: List[List[Tuple[Node, Node]]], resolution: Tuple[int, int],  line_thickness: int) -> np.ndarray:
+        frame = np.zeros([len(points)] + resolution, dtype=np.uint8)
+        for i, layer in enumerate(points):
+            for line in layer:
+                frame[i] = cv2.polylines(frame[i], np.int32([line]), False, 255, line_thickness)
         return frame
 
     def __render_static_overview(self) -> np.ndarray:

@@ -39,6 +39,7 @@ class TinyCarloEnv(gym.Env):
         self.fps: int = config['sim'].get('fps', 30)
         self.T: float = 1/self.fps
         self.render_realtime: bool = config['sim'].get('render_realtime', False)
+        self.observation_space_format: str = config['sim'].get('observation_space_format', "rgb")
 
         self.map: Map = Map(config['map'], base_path=self.config_path)
         self.car: Car = Car(self.T, self.map, config['car'])
@@ -58,12 +59,17 @@ class TinyCarloEnv(gym.Env):
         # action space: {"car_control": [velocity, steering_angle], "maneuver": discrete maneuver (straight, right, u-turn, left)}
         self.action_space: gym.spaces.Dict = gym.spaces.Dict({"car_control": gym.spaces.Box(-1, 1, shape=(2,), dtype=np.float32), "maneuver": gym.spaces.Discrete(4)})
         # observation space: camera views
-        self.observation_space: gym.spaces.Box = gym.spaces.Box(low=0, high=255, shape=self.camera.resolution + [3,], dtype=np.uint8)
+        if self.observation_space_format == "rgb":
+            observation_space_shape: Tuple[int, int, int] = self.camera.resolution + [3]
+        else:
+            n_classes = len(self.map.get_laneline_names())
+            observation_space_shape: Tuple[int, int, int] = [n_classes] + self.camera.resolution
+        self.observation_space: gym.spaces.Box = gym.spaces.Box(low=0, high=255, shape=observation_space_shape, dtype=np.uint8)
 
         self.reset()
 
     def __get_obs(self) -> np.ndarray:
-        return self.camera.capture_frame()
+        return self.camera.capture_frame(self.observation_space_format)
     
     def __get_info(self) -> Dict[str, Any]:
         cte, heading_error, distances = self.car.get_info()
@@ -139,7 +145,7 @@ class TinyCarloEnv(gym.Env):
             self.window_camera = "Camera"
             cv2.namedWindow(self.window_camera, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO | cv2.WINDOW_GUI_NORMAL)
         
-        camera_view: np.ndarray = self.camera.get_last_frame()
+        camera_view: np.ndarray = self.camera.get_last_frame_rgb()
 
         if self.render_mode == "human":
             overview: np.ndarray = self.renderer.render_overview()

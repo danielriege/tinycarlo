@@ -22,7 +22,8 @@ class Camera():
         self.E: np.ndarray = self.__get_extrinsic_matrix()
         self.K: np.ndarray = self.__get_intrinsic_matrix()
 
-        self.last_frame: Optional[np.ndarray] = None
+        self.last_frame_rgb: Optional[np.ndarray] = None
+        self.last_frame_classes: Optional[np.ndarray] = None
     
     ######## 
     # For Visualisation
@@ -40,10 +41,11 @@ class Camera():
         transformed = [T_M.dot(pt) for pt in pts]
         return np.array(transformed)[:,:-1]
     
-    def get_last_frame(self) -> Optional[np.ndarray]:
-        return self.last_frame
+    def get_last_frame_rgb(self) -> Optional[np.ndarray]: return self.last_frame_rgb
     
-    def capture_frame(self) -> np.ndarray:
+    def get_last_frame_classes(self) -> Optional[np.ndarray]: return self.last_frame_classes
+    
+    def capture_frame(self, format: str) -> np.ndarray:
         """
         Captures a frame from the camera.
         """
@@ -83,10 +85,11 @@ class Camera():
             
             polylines.append(list_of_pairs_for_layer)
         colors: List[LayerColor] = self.map.get_laneline_colors()
-        # Rendering RGB frame
-        frame: np.ndarray = self.renderer.render_camera_frame_rgb(polylines, colors, self.resolution, self.line_thickness)
-        self.last_frame = frame
-        return frame
+
+        self.last_frame_rgb = self.renderer.render_camera_frame_rgb(polylines, colors, self.resolution, self.line_thickness)
+        if format == "classes":
+            self.last_frame_classes = self.renderer.render_camera_frame_classes(polylines, self.resolution, self.line_thickness)
+        return self.last_frame_rgb if format == "rgb" else self.last_frame_classes
 
     def __point_on_line_at_z(self, p0: np.ndarray, p1: np.ndarray, target_z: float = -0.00001) -> Optional[np.ndarray]:
         """
