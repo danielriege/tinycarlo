@@ -49,11 +49,13 @@ class Car():
         cte: float = self.map.lanepath.distance_to_edge(self.position_front, self.local_path[1])
         heading_error: float = clip_angle(self.map.lanepath.orientation_of_edge(self.local_path[1]) - self.rotation)
 
-        # calculate distances to nearest and next edge
+        # calculate distances to nearest edge and add to touching, if car is too close
         distances: Dict[str, float] = {}
         for i,layer_name in enumerate(self.map.get_laneline_names()):
-            nearest_edge = self.map.lanelines[i].get_nearest_edge(self.position_front)
-            distances[layer_name] = abs(self.map.lanelines[i].distance_to_edge(self.position_front, nearest_edge))
+            distance_to_nearest_front = abs(self.map.lanelines[i].distance_to_node(self.position_front, self.map.lanelines[i].get_nearest_node(self.position_front)))
+            distance_to_nearest_rear = abs(self.map.lanelines[i].distance_to_node(self.position, self.map.lanelines[i].get_nearest_node(self.position)))
+            distances[layer_name] = max(distance_to_nearest_front, distance_to_nearest_rear)
+
         return cte, heading_error, distances
 
     def step(self, velocity: float, steering_angle: float, maneuver: int) -> None:

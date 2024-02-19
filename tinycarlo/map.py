@@ -46,6 +46,19 @@ class Layer():
         d = [abs(self.distance(position, self.nodes[e[0]]) + self.distance(position, self.nodes[e[1]])) for e in self.edges]
         return self.edges[d.index(min(d))]
     
+    def get_nearest_node(self, position: Tuple[float, float]) -> NodeIdx:
+        """
+        Returns the nearest node to the given position.
+
+        Args:
+            position (Tuple[float, float]): The position to find the nearest node from in meters relative to map frame.
+
+        Returns:
+            NodeIdx: The index of the nearest node to the given position.
+        """
+        d = [self.distance(position, n) for n in self.nodes]
+        return d.index(min(d))
+    
     def get_nearest_edge_with_orientation(self, position: Tuple[float, float], orientation: float) -> Edge:
         """
         Returns the nearest edge to the given position with the specified orientation (+/- 30 deg).
@@ -128,6 +141,19 @@ class Layer():
         position_vector = (position[0]-n1[0], position[1]-n1[1])
         # Calculate the perpendicular distance from point P to the line
         return position_vector[0]*line_vector[1] - position_vector[1]*line_vector[0] / math.sqrt(line_vector[0]**2 + line_vector[1]**2)
+    
+    def distance_to_node(self, position: Tuple[float, float], node_idx: NodeIdx) -> float:
+        """
+        Returns the distance to the given node.
+
+        Args:
+            position (Tuple[float, float]): The position to calculate the distance from in meters relative to map frame.
+            node_idx (NodeIdx): The index of the node to calculate the distance to.
+
+        Returns:
+            float: The distance from the position to the node.
+        """
+        return self.distance(position, self.nodes[node_idx])
     
     def orientation_of_edge(self, edge: Edge) -> float:
         n1, n2 = self.nodes[edge[0]], self.nodes[edge[1]]
