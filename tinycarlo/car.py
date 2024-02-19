@@ -12,7 +12,9 @@ class Car():
         self.wheelbase: float = car_config.get('wheelbase', 0.08)
         self.max_velocity: float = car_config.get('max_velocity', 1)
         self.max_steering_angle: float = car_config.get('max_steering_angle', 35)
-        self.max_steering_change: Optional[float] = car_config.get('max_steering_change', None)
+        self.steering_speed: Optional[float] = car_config.get('steering_speed', None)
+        self.max_acceleration: float = car_config.get('max_acceleration', None)
+        self.max_deceleration: float = car_config.get('max_deceleration', None)
         self.T: float = T
 
         self.wheel_offset: float = self.track_width/5 #from chassis
@@ -23,7 +25,6 @@ class Car():
         self.position_front: Tuple[float, float] # position of middle of front axcle
         self.rotation: float
         self.steering_angle: float
-        self.steering_input: float
         self.radius: float
         self.velocity: float
         self.local_path: List[Edge]
@@ -37,7 +38,6 @@ class Car():
         self.local_path = [nearest_edge]
         self.__update_position_front()
         self.steering_angle = 0.0
-        self.steering_input = 0.0
         self.radius = 0.0
         self.velocity = 0.0
         self.last_maneuver = 0
@@ -65,19 +65,18 @@ class Car():
         """
         dt: float = self.T
 
-        # clip velocity
-        self.velocity = velocity * self.max_velocity
-        self.steering_input = steering_angle
-        # clip steering angle
-        new_steering_angle: float = steering_angle * self.max_steering_angle
+        # set velocity
+        new_velocity = velocity * self.max_velocity
+        if self.max_acceleration is not None:
+            new_velocity = np.clip(new_velocity, self.velocity - self.max_deceleration * dt, self.velocity + self.max_acceleration * dt)
+        self.velocity = new_velocity
 
-        if self.max_steering_change is None:
-            self.steering_angle = new_steering_angle
-        else:
-            # apply smoothness
-            max_steering_in_T: float = self.max_steering_change*self.T
-            steering_change: float = np.clip(new_steering_angle - self.steering_angle, -max_steering_in_T, max_steering_in_T)
-            self.steering_angle = self.steering_angle + steering_change
+        # Set steering angle
+        new_steering_angle: float = steering_angle * self.max_steering_angle
+        if self.steering_speed is not None:
+            new_steering_angle = np.clip(new_steering_angle, self.steering_angle - self.steering_speed * dt, self.steering_angle + self.steering_speed * dt)
+        self.steering_angle = new_steering_angle
+
 
         vxn: float = math.cos(self.rotation)
         vyn: float = math.sin(self.rotation)

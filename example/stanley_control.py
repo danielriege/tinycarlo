@@ -7,7 +7,7 @@ config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./segmen
 env = gym.make("tinycarlo-v2", config=config_path, render_mode="human")
 
 k = 10
-speed = 0.6
+speed = 0
 max_steering_angle = 35
 
 observation, info = env.reset(seed=11)

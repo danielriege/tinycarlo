@@ -7,6 +7,9 @@ car:
   track_width: 0.03 # m
   max_velocity: 0.0001 # m/s
   max_steering_angle: 35 # deg
+  steering_speed: 30 # deg/s
+  max_acceleration: 0.0001 # m/s^2
+  max_deceleration: 0.0001 # m/s^2
 camera:
   position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle (0 pitch is looking down)
   orientation: [20,0,0] # [pitch,roll,yaw] in degrees
