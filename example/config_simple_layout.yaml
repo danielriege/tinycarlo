@@ -5,11 +5,11 @@ sim:
 car:
   wheelbase: 0.06 # m
   track_width: 0.03 # m
-  max_velocity: 0.0001 # m/s
+  max_velocity: 0.16 # m/s
   max_steering_angle: 35 # deg
   steering_speed: 30 # deg/s
-  max_acceleration: 0.0001 # m/s^2
-  max_deceleration: 0.0001 # m/s^2
+  max_acceleration: 0.1 # m/s^2
+  max_deceleration: 1.0 # m/s^2
 camera:
   position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle (0 pitch is looking down)
   orientation: [20,0,0] # [pitch,roll,yaw] in degrees

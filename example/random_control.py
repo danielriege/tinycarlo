@@ -2,7 +2,7 @@ import gymnasium as gym
 import tinycarlo
 import os
 
-config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config.yaml")
+config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config_simple_layout.yaml")
 env = gym.make("tinycarlo-v2", config=config_path, render_mode="human")
 
 observation, info = env.reset()

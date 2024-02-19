@@ -88,18 +88,18 @@ class Car():
         if self.steering_angle == 0:
             self.radius = 0
 
-            self.position[0] = self.position[0] + self.velocity * vxn * dt * 1000
-            self.position[1] = self.position[1] + self.velocity * vyn * dt * 1000
+            self.position[0] = self.position[0] + self.velocity * vxn * dt 
+            self.position[1] = self.position[1] + self.velocity * vyn * dt
         else:
-            self.radius = self.wheelbase/1000 / (math.tan(math.radians(self.steering_angle)))
+            self.radius = self.wheelbase / (math.tan(math.radians(self.steering_angle)))
             ang_vel: float = self.velocity / self.radius
             dyaw: float = ang_vel * dt
 
             nx: float = vyn # normalvector
             ny: float = -vxn
 
-            tx: float = nx * self.radius * 1000
-            ty: float = ny * self.radius * 1000
+            tx: float = nx * self.radius
+            ty: float = ny * self.radius
 
             R_M: np.ndarray = np.array([[math.cos(dyaw), -math.sin(dyaw)],[math.sin(dyaw), math.cos(dyaw)]])
 
