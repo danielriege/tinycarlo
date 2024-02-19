@@ -72,8 +72,8 @@ class TinyCarloEnv(gym.Env):
         return self.camera.capture_frame(self.observation_space_format)
     
     def __get_info(self) -> Dict[str, Any]:
-        cte, heading_error, distances = self.car.get_info()
-        return {"cte": cte, "heading_error": heading_error, "position": self.car.position, "orientation": self.car.rotation, "laneline_distances": distances}
+        cte, heading_error, distances, local_path = self.car.get_info()
+        return {"cte": cte, "heading_error": heading_error, "position": self.car.position, "orientation": self.car.rotation, "laneline_distances": distances, "local_path": local_path}
     
     def __default_reward(self, cte: float) -> float: 
         """

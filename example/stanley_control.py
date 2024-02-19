@@ -7,14 +7,13 @@ config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./segmen
 env = gym.make("tinycarlo-v2", config=config_path, render_mode="human")
 
 k = 10
-speed = 0
+speed = 0.6
 max_steering_angle = 35
 
 observation, info = env.reset(seed=11)
 
 while True:
     cte, heading_error = info["cte"], info["heading_error"]
-    
     # Lateral Control with Stanley Controller
     # cross track steering
     steering_correction = math.atan2(k * cte, speed)
