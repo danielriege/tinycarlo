@@ -26,7 +26,8 @@ class Car():
         self.steering_input: float
         self.radius: float
         self.velocity: float
-        self.local_path: List[Edge] = []
+        self.local_path: List[Edge]
+        self.last_maneuver: int
 
     def reset(self, np_random: Any) -> None:
         """
@@ -39,6 +40,7 @@ class Car():
         self.steering_input = 0.0
         self.radius = 0.0
         self.velocity = 0.0
+        self.last_maneuver = 0
 
     def get_info(self) -> Tuple[float, float, Dict[str, float]]:
         # calculate heading and cross track error by first updating nearest edge and next edge
@@ -54,7 +56,7 @@ class Car():
             distances[layer_name] = abs(self.map.lanelines[i].distance_to_edge(self.position_front, nearest_edge))
         return cte, heading_error, distances
 
-    def step(self, velocity: float, steering_angle: float, maneuver_dir: float) -> None:
+    def step(self, velocity: float, steering_angle: float, maneuver: int) -> None:
         """
         Simulate one time step of the car given a velocity and a steering angle in [-1,1] range.
         Actual value depends on configured max_velocity and max_steering_angle.
@@ -109,9 +111,14 @@ class Car():
         self.__update_position_front()
 
         # calculate local path for reference tracking
-
-        maneuver_dir_world_frame = clip_angle((self.map.lanepath.orientation_of_edge(self.local_path[0]) + maneuver_dir))
-        nearest_edge = self.map.lanepath.get_nearest_connected_edge(self.position_front, self.local_path[0], maneuver_dir_world_frame)
+        maneuver_dir_world_frame = clip_angle((self.map.lanepath.orientation_of_edge(self.local_path[0]) + maneuver * math.pi/2))
+        if maneuver == 2 and self.last_maneuver != 2:
+            # u turn maneuver
+            nearest_edge = self.map.lanepath.get_nearest_edge_with_orientation(self.position_front, maneuver_dir_world_frame)
+            maneuver_dir_world_frame = clip_angle(maneuver_dir_world_frame + math.pi)
+        else:
+            nearest_edge = self.map.lanepath.get_nearest_connected_edge(self.position_front, self.local_path[0], maneuver_dir_world_frame)
+        self.last_maneuver = maneuver
 
         looking_ahead = 3 # nodes to look ahead for local path
         self.local_path = [nearest_edge]

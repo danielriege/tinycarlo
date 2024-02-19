@@ -46,6 +46,22 @@ class Layer():
         d = [abs(self.distance(position, self.nodes[e[0]]) + self.distance(position, self.nodes[e[1]])) for e in self.edges]
         return self.edges[d.index(min(d))]
     
+    def get_nearest_edge_with_orientation(self, position: Tuple[float, float], orientation: float) -> Edge:
+        """
+        Returns the nearest edge to the given position with the specified orientation (+/- 30 deg).
+
+        Args:
+            position (Tuple[float, float]): The position to find the nearest edge from in meters relative to map frame.
+            orientation (float): The orientation of the edge in radians relative to map frame.
+
+        Returns:
+            Edge: The nearest edge to the given position with the specified orientation (+/- 30 deg).
+        """
+        edges_within_orientation_range = [e for e in self.edges if abs(clip_angle(self.orientation_of_edge(e)-orientation)) < math.radians(30)]
+        d = [abs(self.distance(position, self.nodes[e[0]]) + self.distance(position, self.nodes[e[1]])) for e in edges_within_orientation_range]
+        return edges_within_orientation_range[d.index(min(d))]
+
+    
     def get_nearest_connected_edge(self, position: Tuple[float, float], edge: Edge, orientation: Optional[float] = None) -> Edge:
         """
         Returns the nearest connected edge to the given position.

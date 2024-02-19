@@ -107,9 +107,7 @@ class TinyCarloEnv(gym.Env):
         start: float = time.time()
         # clip car_control to action space
         car_control: np.ndarray = np.clip(action["car_control"], self.action_space["car_control"].low, self.action_space["car_control"].high)
-        # convert maneuver discrete action into rad angle
-        maneuver_dir: float = action["maneuver"] * np.pi/2
-        self.car.step(car_control[0], car_control[1], maneuver_dir)
+        self.car.step(car_control[0], car_control[1], action["maneuver"])
 
         observation: np.ndarray = self.__get_obs()
         info: Dict[str: Any] = self.__get_info()

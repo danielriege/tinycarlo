@@ -20,8 +20,8 @@ while True:
     steering_correction = math.atan2(k * cte, speed)
     # Total steering angle
     steering_angle = (heading_error + steering_correction) * 180 / math.pi / max_steering_angle
-
-    action = {"car_control": [speed, steering_angle], "maneuver": 3}
+    
+    action = {"car_control": [speed, steering_angle], "maneuver": 0}
     observation, reward, terminated, truncated, info = env.step(action)
     if terminated or truncated:
         observation, info = env.reset()
