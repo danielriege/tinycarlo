@@ -89,7 +89,7 @@ def finish_map_building() -> None:
             map_dict["lanepath"] = layer_dict
         else:
             map_dict["lanelines"][layer_name] = layer_dict
-    print("Map building finished. Saving map to map.json ...")
+    print("Saving map to map.json ...")
     with open("map.json", "w") as f:
         json.dump(map_dict, f)
 
@@ -132,6 +132,8 @@ def main() -> None:
             elif key == ord("n"):  # Press 'n' to create new layer
                 print("Finished building layer: " + layer_name)
                 image = layer_builders[-1].render_final()
+                # Saving current progress
+                finish_map_building()
                 break
             elif key == ord("u"):  # Press 'u' to undo
                 layer_builders[-1].undo()

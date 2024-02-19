@@ -40,11 +40,12 @@ class TinyCarloEnv(gym.Env):
         self.T: float = 1/self.fps
         self.render_realtime: bool = config['sim'].get('render_realtime', False)
         self.observation_space_format: str = config['sim'].get('observation_space_format', "rgb")
+        self.overview_pixel_per_meter: int = config['sim'].get('overview_pixel_per_meter', 150)
 
         self.map: Map = Map(config['map'], base_path=self.config_path)
         self.car: Car = Car(self.T, self.map, config['car'])
 
-        self.renderer: Renderer = Renderer(self.map, self.car)
+        self.renderer: Renderer = Renderer(self.map, self.car, self.overview_pixel_per_meter)
         self.camera: Camera = Camera(self.map, self.car, self.renderer, config['camera'])
         self.loop_time: int = 1
         self.window: Optional[str] = None
@@ -127,7 +128,7 @@ class TinyCarloEnv(gym.Env):
         # for debugging performance
         self.loop_time: float = time.time() - start
         if getenv("DEBUG"):
-            print(f"Step time: {self.loop_time/1000:.6f} ms")
+            print(f"Step time: {self.loop_time*1000:.6f} ms")
 
         return observation, reward, terminated, False, info
 

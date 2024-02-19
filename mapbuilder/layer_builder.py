@@ -89,7 +89,7 @@ class LayerBuilder:
         self.selected_node_idx = len(self.nodes) - 1
 
     def loop_closure(self, nearest_node_idx: Optional[int]) -> None:
-        if nearest_node_idx is not None:
+        if nearest_node_idx is not None and self.selected_node_idx is not None:
             self.edges.append((self.selected_node_idx, nearest_node_idx))
 
     def undo(self) -> None:
