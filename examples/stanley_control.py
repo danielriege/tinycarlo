@@ -3,6 +3,9 @@ import tinycarlo
 import os
 import math
 
+from tinycarlo.wrapper.reward import CTESparseRewardWrapper
+from tinycarlo.wrapper.termination import LanelineCrossingTerminationWrapper
+
 config = {
     "sim": {
         "fps": 30,
@@ -32,6 +35,8 @@ config = {
     }
 }
 env = gym.make("tinycarlo-v2", config=config, render_mode="human")
+env = CTESparseRewardWrapper(env, 0.002)
+env = LanelineCrossingTerminationWrapper(env, ["outer"])
 
 k = 5
 speed = 0.6
@@ -46,6 +51,7 @@ while True:
 
     action = {"car_control": [speed, steering_angle], "maneuver": 3} # always try to turn left
     observation, reward, terminated, truncated, info = env.step(action)
+    print(reward)
     if terminated or truncated:
         observation, info = env.reset()
         break

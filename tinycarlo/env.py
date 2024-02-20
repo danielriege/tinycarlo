@@ -51,6 +51,8 @@ class TinyCarloEnv(gym.Env):
         self.window: Optional[str] = None
         self.window_camera: Optional[str] = None
 
+        self.wrapped: bool = False # flag to check if env is wrapped by a custom wrapper. I true, it will disable default reward and termination condition.
+
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode: Optional[str] = render_mode
 
@@ -119,8 +121,8 @@ class TinyCarloEnv(gym.Env):
         info can be useful to calculate more complex rewards or termination conditions.
         """
         cte = info["cte"]
-        reward: float = self.__default_reward(cte)
-        terminated: bool = self.__default_termination(cte)
+        reward: float = self.__default_reward(cte) if self.wrapped == False else 0
+        terminated: bool = self.__default_termination(cte) if self.wrapped == False else False
 
         if self.render_mode == "human":
             self.__render_frame()
