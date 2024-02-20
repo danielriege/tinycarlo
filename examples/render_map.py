@@ -7,7 +7,7 @@ import cv2
 
 map_config = {
     "json_path": sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "maps/knuffingen.json"),
-    "pixel_per_meter": sys.argv[2] if len(sys.argv) > 2 else 266
+    "pixel_per_meter": int(sys.argv[2]) if len(sys.argv) > 2 else 266
 }
 map = Map(map_config)
 renderer = Renderer(map, overview_pixel_per_meter=map_config["pixel_per_meter"])
