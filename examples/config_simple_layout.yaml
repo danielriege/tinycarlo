@@ -11,7 +11,7 @@ car:
   max_acceleration: 0.1 # m/s^2
   max_deceleration: 1.0 # m/s^2
 camera:
-  position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle (0 pitch is looking down)
+  position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle
   orientation: [20,0,0] # [pitch,roll,yaw] in degrees
   resolution: [480,640] # [height, width] in px
   fov: 90 # in degrees

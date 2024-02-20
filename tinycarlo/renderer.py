@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from tinycarlo.map import Map, Node, LayerColor
 from tinycarlo.car import Car
@@ -8,7 +8,7 @@ from tinycarlo.car import Car
 LINE_THICKNESS = 1
 
 class Renderer():
-    def __init__(self, map: Map, car: Car, overview_pixel_per_meter: int = 266):
+    def __init__(self, map: Map, car: Optional[Car] = None, overview_pixel_per_meter: int = 266):
         self.map: Map = map
         self.car: Car = car
         self.overview_pixel_per_meter: int =  overview_pixel_per_meter
@@ -19,14 +19,15 @@ class Renderer():
         image = self.static_overview.copy()
 
         #car render
-        car_pts = self.car.get_chassis_points()
-        image = cv2.polylines(image, self.__scale_points(car_pts), True, (255,0,0), LINE_THICKNESS)
-        for wheel in self.car.get_wheel_points():
-            image = cv2.polylines(image, self.__scale_points(wheel), False, (255,0,255), np.int32(self.car.wheel_width * self.overview_pixel_per_meter))
+        if self.car is not None:
+            car_pts = self.car.get_chassis_points()
+            image = cv2.polylines(image, self.__scale_points(car_pts), True, (255,0,0), LINE_THICKNESS)
+            for wheel in self.car.get_wheel_points():
+                image = cv2.polylines(image, self.__scale_points(wheel), False, (255,0,255), np.int32(self.car.wheel_width * self.overview_pixel_per_meter))
 
-        # car local path render
-        for edge in self.car.local_path:
-            image = cv2.polylines(image, self.__scale_points([self.map.lanepath.nodes[edge[0]], self.map.lanepath.nodes[edge[1]]]), False, (255,0,0), LINE_THICKNESS)
+            # car local path render
+            for edge in self.car.local_path:
+                image = cv2.polylines(image, self.__scale_points([self.map.lanepath.nodes[edge[0]], self.map.lanepath.nodes[edge[1]]]), False, (255,0,0), LINE_THICKNESS)
 
         return image
     
