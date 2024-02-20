@@ -18,7 +18,7 @@ class LanelineSparseRewardWrapper(Wrapper):
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
-        conditions = {layer_name: info["laneline_distances"][layer_name] < self.env.car.track_width * 2/3 for layer_name in info["laneline_distances"]}
+        conditions = {layer_name: info["laneline_distances"][layer_name] < self.unwrapped.car.track_width * 2/3 for layer_name in info["laneline_distances"]}
         reward += sparse_reward(conditions, self.sparse_rewards)
         return observation, reward, terminated, truncated, info
     
@@ -38,7 +38,7 @@ class LanelineLinearRewardWrapper(Wrapper):
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         for layer_name, distance in info["laneline_distances"].items():
-            reward += linear_reward(distance, self.env.car.track_width, self.max_rewards[layer_name])
+            reward += linear_reward(distance, self.unwrapped.car.track_width, self.max_rewards[layer_name])
         return observation, reward, terminated, truncated, info
     
 class CTESparseRewardWrapper(Wrapper):
