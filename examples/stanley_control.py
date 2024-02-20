@@ -8,7 +8,6 @@ config = {
         "fps": 30,
         "render_realtime": True,
         "observation_space_format": "rgb",
-        "overview_pixel_per_meter": 100
     },
     "car": {
         "wheelbase": 0.06,
@@ -36,7 +35,6 @@ env = gym.make("tinycarlo-v2", config=config, render_mode="human")
 
 k = 5
 speed = 0.6
-max_steering_angle = 35
 
 observation, info = env.reset(seed=2)
 
@@ -44,9 +42,9 @@ while True:
     cte, heading_error = info["cte"], info["heading_error"]
     # Lateral Control with Stanley Controller
     steering_correction = math.atan2(k * cte, speed)
-    steering_angle = (heading_error + steering_correction) * 180 / math.pi / max_steering_angle
+    steering_angle = (heading_error + steering_correction) * 180 / math.pi / config["car"]["max_steering_angle"]
 
-    action = {"car_control": [speed, steering_angle], "maneuver": 3}
+    action = {"car_control": [speed, steering_angle], "maneuver": 3} # always try to turn left
     observation, reward, terminated, truncated, info = env.step(action)
     if terminated or truncated:
         observation, info = env.reset()
