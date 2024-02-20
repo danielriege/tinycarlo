@@ -2,7 +2,8 @@ import math
 import numpy as np
 import cv2
 from typing import Any, List, Tuple, Dict, Optional
-from tinycarlo.map import Map, Edge, Node
+from tinycarlo.layer import Edge, Node
+from tinycarlo.map import Map
 from tinycarlo.helper import clip_angle
 
 class Car():

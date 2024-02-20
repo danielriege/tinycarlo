@@ -2,7 +2,8 @@ import numpy as np
 import cv2
 from typing import List, Tuple, Optional
 
-from tinycarlo.map import Map, Node, LayerColor
+from tinycarlo.layer import Node, LayerColor
+from tinycarlo.map import Map
 from tinycarlo.car import Car
 
 LINE_THICKNESS = 1
