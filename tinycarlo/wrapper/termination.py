@@ -17,7 +17,7 @@ class LanelineCrossingTerminationWrapper(Wrapper):
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
         for layer_name in self.lanelines:
-            if info["laneline_distances"][layer_name] < self.unwrapped.car.track_width * 2/3:
+            if info["laneline_distances"][layer_name] < self.unwrapped.car.track_width/2:
                 terminated = True
         return observation, reward, terminated, truncated, info
     

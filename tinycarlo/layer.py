@@ -1,4 +1,4 @@
-from tinycarlo.helper import clip_angle
+from tinycarlo.helper import clip_angle, angle
 from typing import List, Tuple, Optional
 import math
 
@@ -120,6 +120,24 @@ class Layer():
         orientations_per_edge = [math.atan2(self.nodes[nn][1]-n[1], self.nodes[nn][0]-n[0]) for nn in connected_nodes]
         idx = min(range(len(orientations_per_edge)), key=lambda i: abs(clip_angle(orientations_per_edge[i]-orientation)))
         return connected_nodes[idx]
+    
+    def is_position_within_edge_bounds(self, position: Tuple[float, float], edge: Edge) -> bool:
+        """
+        Checks if the given position is within the bounds of the given edge.
+        Lets assume edge has the coordinates (0,0) and (2,0). Then the position is within the bounds if x is between 0 and 2, independently of y.
+        Of course this is only true for straight edges like in the given case. For edges with an angle, the check is more complex.
+        """
+        n0, n1 = self.nodes[edge[0]], self.nodes[edge[1]]
+        if position[0] == n0[0] and position[1] == n0[1]:
+            return True
+        if position[0] == n1[0] and position[1] == n1[1]:
+            return True
+        edge_vector = (n1[0]-n0[0], n1[1]-n0[1])
+        n0_point_v = (position[0]-n0[0], position[1]-n0[1])
+        n1_point_v = (position[0]-n1[0], position[1]-n1[1])
+        n0_point_angle = abs(clip_angle(angle(*n0_point_v) - angle(*edge_vector)))
+        n1_point_angle = abs(clip_angle(angle(*n1_point_v) - angle(-edge_vector[0], -edge_vector[1])))
+        return n0_point_angle <= math.pi/2 and n1_point_angle <= math.pi/2
     
     def distance_to_edge(self, position: Tuple[float, float], edge: Edge) -> float:
         """

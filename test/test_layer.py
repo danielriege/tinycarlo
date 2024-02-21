@@ -117,6 +117,55 @@ class LayerTestCase(unittest.TestCase):
 
     def test_pick_node_given_orientation(self):
         pass
+    
+    def test_is_position_within_edge_bounds(self):
+        n = [(0,0), (3,0)]
+        e = [(0,1)]
+        layer = build_test_layer(n, e)
+        assert layer.is_position_within_edge_bounds((0,5), e[0]) == True
+        assert layer.is_position_within_edge_bounds((-1,5), e[0]) == False
+        assert layer.is_position_within_edge_bounds((3.1,5), e[0]) == False
+        assert layer.is_position_within_edge_bounds((3,5), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,-5), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,0.1), e[0]) == True
+        assert layer.is_position_within_edge_bounds((0,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((3,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((3.001,0), e[0]) == False
+        e = [(1,0)]
+        layer = build_test_layer(n, e)
+        assert layer.is_position_within_edge_bounds((0,5), e[0]) == True
+        assert layer.is_position_within_edge_bounds((-1,5), e[0]) == False
+        assert layer.is_position_within_edge_bounds((3.1,5), e[0]) == False
+        assert layer.is_position_within_edge_bounds((3,5), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,-5), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,0.1), e[0]) == True
+        n = [(0,0), (0,3)]
+        e = [(0,1)]
+        layer = build_test_layer(n, e)
+        assert layer.is_position_within_edge_bounds((5,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((5,1), e[0]) == True
+        assert layer.is_position_within_edge_bounds((5,3), e[0]) == True
+        assert layer.is_position_within_edge_bounds((5,4), e[0]) == False
+        assert layer.is_position_within_edge_bounds((-5,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((-5,1), e[0]) == True
+        assert layer.is_position_within_edge_bounds((-5,-0.1), e[0]) == False
+        assert layer.is_position_within_edge_bounds((0,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((0,3), e[0]) == True
+        n = [(0,0), (3,3)]
+        e = [(0,1)]
+        layer = build_test_layer(n, e)
+        assert layer.is_position_within_edge_bounds((0,3), e[0]) == True
+        assert layer.is_position_within_edge_bounds((3,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((3,3), e[0]) == True
+        assert layer.is_position_within_edge_bounds((0,0), e[0]) == True
+        assert layer.is_position_within_edge_bounds((1,1), e[0]) == True
+        assert layer.is_position_within_edge_bounds((-1,-1), e[0]) == False
+        assert layer.is_position_within_edge_bounds((4,4), e[0]) == False
+
+
+
 
     def test_distance_to_edge(self):
         n = [(0,0), (3,0)]

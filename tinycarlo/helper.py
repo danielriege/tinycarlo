@@ -17,3 +17,9 @@ def clip_angle(angle: float) -> float:
     while angle < -math.pi:
         angle += 2*math.pi
     return angle
+
+def angle(x: float, y: float) -> float:
+    """
+    Calculate the angle of a vector (x, y) in radians
+    """
+    return math.atan2(y, x)
