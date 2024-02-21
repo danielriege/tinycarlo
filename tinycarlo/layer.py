@@ -56,7 +56,7 @@ class Layer():
         d = [self.distance(position, n) for n in self.nodes]
         return d.index(min(d))
     
-    def get_nearest_edge_with_orientation(self, position: Tuple[float, float], orientation: float) -> Edge:
+    def get_nearest_edge_with_orientation(self, position: Tuple[float, float], orientation: float) -> Optional[Edge]:
         """
         Returns the nearest edge to the given position with the specified orientation (+/- 30 deg).
 
@@ -67,7 +67,9 @@ class Layer():
         Returns:
             Edge: The nearest edge to the given position with the specified orientation (+/- 30 deg).
         """
-        edges_within_orientation_range = [e for e in self.edges if abs(clip_angle(self.orientation_of_edge(e)-orientation)) < math.radians(30)]
+        edges_within_orientation_range = [e for e in self.edges if abs(clip_angle(self.orientation_of_edge(e)-orientation)) <= math.radians(30)]
+        if len(edges_within_orientation_range) == 0:
+            return None
         d = [abs(self.distance(position, self.nodes[e[0]]) + self.distance(position, self.nodes[e[1]])) for e in edges_within_orientation_range]
         return edges_within_orientation_range[d.index(min(d))]
 
@@ -131,13 +133,15 @@ class Layer():
             float: The perpendicular distance from the position to the edge.
         """
         n1, n2 = self.nodes[edge[0]], self.nodes[edge[1]]
-        if n1 == n2:
-            print("Warning: Edge has zero length")
-            return self.distance(position, n1)
         line_vector = (n2[0]-n1[0], n2[1]-n1[1])
         position_vector = (position[0]-n1[0], position[1]-n1[1])
+        if line_vector[0] == 0:
+            if line_vector[1] > 0:
+                return position[0] - n1[0]
+            else:
+                return n1[0] - position[0]
         # Calculate the perpendicular distance from point P to the line
-        return position_vector[0]*line_vector[1] - position_vector[1]*line_vector[0] / math.sqrt(line_vector[0]**2 + line_vector[1]**2)
+        return (position_vector[0]*line_vector[1] - position_vector[1]*line_vector[0]) / math.sqrt(line_vector[0]**2 + line_vector[1]**2)
     
     def distance_to_node(self, position: Tuple[float, float], node_idx: NodeIdx) -> float:
         """
