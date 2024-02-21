@@ -55,13 +55,13 @@ class Car():
         # calculate distances to nearest edge for each layer
         distances: Dict[str, float] = {}
         for i,layer_name in enumerate(self.map.get_laneline_names()):
-            nearest_edge = self.map.lanelines[i].get_nearest_edge(self.position_front)
-            if self.map.lanelines[i].is_position_within_edge_bounds(self.position_front, nearest_edge):
+            nearest_edge = self.map.lanelines[i].get_nearest_edge(self.position)
+            if self.map.lanelines[i].is_position_within_edge_bounds(self.position, nearest_edge):
                 # if the car is within the bounds of the edge, the distance is the perpendicular distance to the edge
-                distances[layer_name] = abs(self.map.lanelines[i].distance_to_edge(self.position_front, nearest_edge))
+                distances[layer_name] = abs(self.map.lanelines[i].distance_to_edge(self.position, nearest_edge))
             else:
                 # if the car is not within the bounds of the edge, the distance is the minimum distance to the edge nodes
-                distances[layer_name] = min(self.map.lanelines[i].distance_to_node(self.position_front, nearest_edge[0]), self.map.lanelines[i].distance_to_node(self.position_front, nearest_edge[1]))
+                distances[layer_name] = min(self.map.lanelines[i].distance_to_node(self.position, nearest_edge[0]), self.map.lanelines[i].distance_to_node(self.position_front, nearest_edge[1]))
         # set local path for reference tracking. Instead of having a list of edges we want to have a list of coordinates
         local_path_coordinates = [self.map.lanepath.nodes[edge[1]] for edge in self.local_path]
 
