@@ -117,7 +117,7 @@ class Layer():
         if len(connected_nodes) <= 1:
             return connected_nodes[0]
         n = self.nodes[node_idx]
-        orientations_per_edge = [math.atan2(self.nodes[nn][1]-n[1], self.nodes[nn][0]-n[0]) for nn in connected_nodes]
+        orientations_per_edge = [math.atan2(self.nodes[nn][1]-n[1], self.nodes[nn][0]-n[0]) for nn in connected_nodes if nn != node_idx]
         idx = min(range(len(orientations_per_edge)), key=lambda i: abs(clip_angle(orientations_per_edge[i]-orientation)))
         return connected_nodes[idx]
     
