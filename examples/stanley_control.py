@@ -30,13 +30,13 @@ config = {
         "line_thickness": 2 # in pixels
     },
     "map": {
-        "json_path": os.path.join(os.path.dirname(__file__), "maps/knuffingen.json"),
-        "pixel_per_meter": 266
+        "json_path": os.path.join(os.path.dirname(__file__), "maps/formula_student_track.json"),
+        "pixel_per_meter": 800
     }
 }
 env = gym.make("tinycarlo-v2", config=config, render_mode="human")
-env = CTESparseRewardWrapper(env, 0.002)
-env = LanelineCrossingTerminationWrapper(env, ["outer"])
+env = CTESparseRewardWrapper(env, 0.01)
+#env = LanelineCrossingTerminationWrapper(env, ["outer"])
 
 k = 5
 speed = 0.6
@@ -48,7 +48,6 @@ while True:
     # Lateral Control with Stanley Controller
     steering_correction = math.atan2(k * cte, speed)
     steering_angle = (heading_error + steering_correction) * 180 / math.pi / config["car"]["max_steering_angle"]
-
     action = {"car_control": [speed, steering_angle], "maneuver": 3} # always try to turn left
     observation, reward, terminated, truncated, info = env.step(action)
     print(reward)
