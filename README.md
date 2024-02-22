@@ -57,16 +57,12 @@ To keep it simple and lightweight no physics engine is used (yet). Only the kine
 Only camera is simulated. Other sensors like lidar, radar, ultrasonic, etc. are not simulated (yet). There is also no support for 3D object detection even though it is not much code needed to add this feature. The camera already does a proper projection of 3D points onto the 2D image with clipping and Z-Buffering. For the lanelines, z is simply set to 0.
 
 ## Installation
-The current recommended way to install tinycarlo is from source to get access to [mapbuilder](./mapbuilder/README.md) and examples.
+The current recommended way to install tinycarlo is from source.
 ### From source
 ```bash
 git clone https://github.com/danielriege/tinycarlo
 cd tinycarlo
 python3 -m pip3 install -e .
-```
-### From PyPi
-```bash
-python3 -m pip install tinycarlo
 ```
 
 ## Usage
