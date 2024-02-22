@@ -36,7 +36,7 @@ config = {
 }
 env = gym.make("tinycarlo-v2", config=config, render_mode="human")
 env = CTESparseRewardWrapper(env, 0.01)
-#env = LanelineCrossingTerminationWrapper(env, ["outer"])
+env = LanelineCrossingTerminationWrapper(env, ["outer"])
 
 k = 5
 speed = 0.6
