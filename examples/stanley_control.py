@@ -30,13 +30,12 @@ config = {
         "line_thickness": 2 # in pixels
     },
     "map": {
-        "json_path": os.path.join(os.path.dirname(__file__), "maps/formula_student_track.json"),
-        "pixel_per_meter": 800
+        "json_path": os.path.join(os.path.dirname(__file__), "maps/knuffingen.json"),
+        "pixel_per_meter": 250
     }
 }
 env = gym.make("tinycarlo-v2", config=config, render_mode="human")
 env = CTESparseRewardWrapper(env, 0.01)
-env = LanelineCrossingTerminationWrapper(env, ["outer"])
 
 k = 5
 speed = 0.6
