@@ -1,4 +1,4 @@
-import math
+import time
 import numpy as np
 import cv2
 from typing import Any, List, Tuple, Dict, Optional
@@ -6,6 +6,7 @@ from typing import Any, List, Tuple, Dict, Optional
 from tinycarlo.map import Map, Node, LayerColor
 from tinycarlo.car import Car
 from tinycarlo.renderer import Renderer
+from tinycarlo.helper import getenv
 
 class Camera():
     def __init__(self, map: Map, car: Car, renderer: Renderer, camera_config: Dict[str, Any]):
@@ -55,9 +56,14 @@ class Camera():
             points: np.ndarray = np.column_stack((np.array(nodes), np.zeros((len(nodes), 1))))
             
             camera_pose = self.E @ self.car.get_3d_transformation_matrix()
+
+            st_transform = time.perf_counter()
             points_camera_frame = self.__transform_into_camera_frame(points, camera_pose)
+            td_transform = time.perf_counter() - st_transform
+
             depths = points_camera_frame[:,2]
             # Now, there is still possibility that e0 is in frame and in front of camera, but e1 is behind camera => glitch when projecting
+            st_correct = time.perf_counter()
             idx_front = np.where(depths < 0)[0]
             for edge in [e for e in edges if e[0] not in idx_front and e[1] in idx_front]:
                 points_camera_frame[edge[0],:] = self.__point_on_line_at_z(points_camera_frame[edge[1],:], points_camera_frame[edge[0],:])
@@ -66,6 +72,7 @@ class Camera():
             for edge in [e for e in edges if e[0] in idx_front and e[1] not in idx_front]:
                 points_camera_frame[edge[1],:] = self.__point_on_line_at_z(points_camera_frame[edge[0],:], points_camera_frame[edge[1],:])
                 idx_front = np.append(idx_front, edge[1])
+            td_correct = time.perf_counter() - st_correct
             # same for points out of range
             idx_in_range = np.where(depths > -self.max_range if self.max_range else True)[0]
             for edge in [e for e in edges if e[0] not in idx_in_range and e[1] in idx_in_range]:
@@ -74,6 +81,7 @@ class Camera():
             for edge in [e for e in edges if e[0] in idx_in_range and e[1] not in idx_in_range]:
                 points_camera_frame[edge[1],:] = self.__point_on_line_at_z(points_camera_frame[edge[0],:], points_camera_frame[edge[1],:], -self.max_range)
                 idx_in_range = np.append(idx_in_range, edge[1])
+            td_correct_range = time.perf_counter() - st_correct - td_correct
 
             pp = self.__project_to_image_plane(points_camera_frame, self.K)
             idx_in_frame = np.where((pp[:,0] > 0) & (pp[:,0] < self.resolution[1]) & (pp[:,1] > 0) & (pp[:,1] < self.resolution[0]))[0] # indices of points in frame
@@ -84,11 +92,18 @@ class Camera():
             list_of_pairs_for_layer: List[Tuple[Node, Node]] = [(pp[e[0],:], pp[e[1],:]) for e in edges if e[0] in idx or e[1] in idx]
             
             polylines.append(list_of_pairs_for_layer)
+
+            if getenv("DEBUG"):
+                print(f"obs node sz {len(nodes)} transform: {td_transform*1000:.4f} ms | cor: {td_correct*1000:.4f} ms | corr rng: {td_correct_range*1000:.4f} ms")
         colors: List[LayerColor] = self.map.get_laneline_colors()
 
+        st_render = time.perf_counter()
         self.last_frame_rgb = self.renderer.render_camera_frame_rgb(polylines, colors, self.resolution, self.line_thickness)
         if format == "classes":
             self.last_frame_classes = self.renderer.render_camera_frame_classes(polylines, self.resolution, self.line_thickness)
+        
+        if getenv("DEBUG"):
+            print(f"obs render: {(time.perf_counter()-st_render)*1000:.4f} ms")
         return self.last_frame_rgb if format == "rgb" else self.last_frame_classes
 
     def __point_on_line_at_z(self, p0: np.ndarray, p1: np.ndarray, target_z: float = -0.00001) -> Optional[np.ndarray]:
