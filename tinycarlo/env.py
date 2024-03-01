@@ -107,13 +107,20 @@ class TinyCarloEnv(gym.Env):
         return observation, info
 
     def step(self, action: Union[gym.spaces.Dict, Dict[str, Any]]) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
-        start: float = time.time()
+        st: float = time.perf_counter()
         # clip car_control to action space
         car_control: np.ndarray = np.clip(action["car_control"], self.action_space["car_control"].low, self.action_space["car_control"].high)
+        st_step: float = time.perf_counter()
         self.car.step(car_control[0], car_control[1], action["maneuver"])
+        td_step: float = time.perf_counter() - st_step
 
+        st_obs: float = time.perf_counter()
         observation: np.ndarray = self.__get_obs()
+        td_obs: float = time.perf_counter() - st_obs
+
+        st_info: float = time.perf_counter()
         info: Dict[str: Any] = self.__get_info()
+        td_info: float = time.perf_counter() - st_info
 
         """
         This is the default reward and termination condition.
@@ -128,9 +135,8 @@ class TinyCarloEnv(gym.Env):
             self.__render_frame()
 
         # for debugging performance
-        self.loop_time: float = time.time() - start
         if getenv("DEBUG"):
-            print(f"Step time: {self.loop_time*1000:.6f} ms")
+            print(f"all: {(time.perf_counter() - st)*1000:.2f} ms | obs render {td_obs*1000:.2f} ms | info {td_info*1000:.2f} ms | car step {td_step*1000:.2f} ms")
 
         return observation, reward, terminated, False, info
 
