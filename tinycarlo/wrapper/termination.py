@@ -1,18 +1,18 @@
 from gymnasium import Wrapper
-from typing import List
+from typing import List, Union
 
 class LanelineCrossingTerminationWrapper(Wrapper):
-    def __init__(self, env, lanelines: List[str]):
+    def __init__(self, env, lanelines: Union[List[str], str]):
         """
         Wrapper class for terminating the environment when the car crosses certain lanelines.
 
         Args:
             env (gym.Env): The environment to wrap.
-            lanelines (List[str]): List of laneline names to check for crossing.
+            lanelines (List[str] | str): List of laneline names or laneline name to check for crossing.
         """
         super().__init__(env)
         self.unwrapped.wrapped = True
-        self.lanelines = lanelines
+        self.lanelines = lanelines if isinstance(lanelines, list) else [lanelines]
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
