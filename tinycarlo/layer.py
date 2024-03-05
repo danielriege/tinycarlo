@@ -74,7 +74,7 @@ class Layer():
         return edges_within_orientation_range[d.index(min(d))]
 
     
-    def get_nearest_connected_edge(self, position: Tuple[float, float], edge: Edge, orientation: Optional[float] = None) -> Edge:
+    def get_nearest_connected_edge(self, position: Tuple[float, float], edge: Edge, orientation: Optional[float] = None) -> Optional[Edge]:
         """
         Returns the nearest connected edge to the given position.
 
@@ -90,6 +90,8 @@ class Layer():
         next_nodes, prev_nodes = self.get_next_nodes(edge[1]), self.get_prev_nodes(edge[0])
         next_node = self.pick_node_given_orientation(edge[1], orientation, next_nodes) if orientation is not None else next_nodes[0]
         prev_node = self.pick_node_given_orientation(edge[0], orientation, prev_nodes) if orientation is not None else prev_nodes[0]
+        if next_node is None or prev_node is None:
+            return None
 
         d0,d1 = self.distance(position, self.nodes[edge[0]]), self.distance(position, self.nodes[edge[1]])
         dn, dp = self.distance(position, self.nodes[next_node]), self.distance(position, self.nodes[prev_node])

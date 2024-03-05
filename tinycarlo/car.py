@@ -67,10 +67,12 @@ class Car():
 
         return cte, heading_error, distances, local_path_coordinates
 
-    def step(self, velocity: float, steering_angle: float, maneuver: int) -> None:
+    def step(self, velocity: float, steering_angle: float, maneuver: int) -> bool:
         """
         Simulate one time step of the car given a velocity and a steering angle in [-1,1] range.
         Actual value depends on configured max_velocity and max_steering_angle.
+
+        Returns if the car is terminated (True) or not (False)
         """
         dt: float = self.T
 
@@ -128,6 +130,8 @@ class Car():
             maneuver_dir_world_frame = clip_angle(maneuver_dir_world_frame + math.pi)
         else:
             nearest_edge = self.map.lanepath.get_nearest_connected_edge(self.position_front, self.local_path[0], maneuver_dir_world_frame)
+            if nearest_edge is None:
+                return True
         self.last_maneuver = maneuver
 
         looking_ahead = 3 # nodes to look ahead for local path
@@ -136,9 +140,14 @@ class Car():
             last_edge = self.local_path[-1]
             if self.velocity > 0:
                 next_edge = last_edge[1], self.map.lanepath.pick_node_given_orientation(last_edge[1], maneuver_dir_world_frame, self.map.lanepath.get_next_nodes(last_edge[1]))
+                if next_edge is None:
+                    return True
             else:
                 next_edge = last_edge[0], self.map.lanepath.pick_node_given_orientation(last_edge[0], maneuver_dir_world_frame, self.map.lanepath.get_prev_nodes(last_edge[0]))
+                if next_edge is None:
+                    return True
             self.local_path.append(next_edge)
+        return False
 
     def get_transformation_matrix(self) -> np.ndarray:
         ''' 
