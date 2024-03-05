@@ -32,6 +32,7 @@ class TinyCarloEnv(gym.Env):
             with open(self.config_path, "r") as stream:
                 config = yaml.safe_load(stream)
                 print(f'Loaded configuration file: {self.config_path}')
+        self.config = config
 
         """
         Setting up variables needed for simulation including car, map, camera, reward handler, etc.
