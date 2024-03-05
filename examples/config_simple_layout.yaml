@@ -1,22 +1,22 @@
 sim:
   fps: 30 # int
   render_realtime: True # boolean
-  observation_space_format: rgb # "rgb" or "classes"
+  observation_space_format: classes # "rgb" or "classes"
 car:
   wheelbase: 0.06 # m
   track_width: 0.03 # m
-  max_velocity: 0.16 # m/s
+  max_velocity: 0.1 # m/s
   max_steering_angle: 35 # deg
   steering_speed: 30 # deg/s
   max_acceleration: 0.1 # m/s^2
   max_deceleration: 1.0 # m/s^2
 camera:
   position: [0,0,0.03] # [x,y,z] in m relative to middle of front axle
-  orientation: [20,0,0] # [pitch,roll,yaw] in degrees
+  orientation: [15,0,0] # [pitch,roll,yaw] in degrees
   resolution: [480,640] # [height, width] in px
   fov: 90 # in degrees
   max_range: 0.5 # in m (can be None for infinite range)
-  line_thickness: 2 # in px
+  line_thickness: 20 # in px
 map:
   json_path: ./maps/simple_layout.json # path to map file
   pixel_per_meter: 500

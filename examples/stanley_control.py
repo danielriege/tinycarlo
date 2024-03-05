@@ -16,7 +16,7 @@ config = {
         "wheelbase": 0.06, # distance between front and rear axle in meters
         "track_width": 0.03, # distance between the left and right wheel in meters
         "max_velocity": 0.16, # in m/s
-        "max_steering_angle": 35, # in degrees
+        "max_steering_angle": 25, # in degrees
         "steering_speed": 30, # in deg/s
         "max_acceleration": 0.1, # in m/s^2
         "max_deceleration": 1 # in m/s^2
@@ -31,14 +31,14 @@ config = {
     },
     "map": {
         "json_path": os.path.join(os.path.dirname(__file__), "maps/knuffingen.json"),
-        "pixel_per_meter": 250
+        "pixel_per_meter": 266
     }
 }
 env = gym.make("tinycarlo-v2", config=config, render_mode="human")
 env = CTESparseRewardWrapper(env, 0.01)
 
 k = 5
-speed = 0.6
+speed = 0.2
 
 observation, info = env.reset(seed=2)
 
@@ -49,7 +49,7 @@ while True:
     steering_angle = (heading_error + steering_correction) * 180 / math.pi / config["car"]["max_steering_angle"]
     action = {"car_control": [speed, steering_angle], "maneuver": 3} # always try to turn left
     observation, reward, terminated, truncated, info = env.step(action)
-    print(reward)
+    print(steering_angle)
     if terminated or truncated:
         observation, info = env.reset()
         break
