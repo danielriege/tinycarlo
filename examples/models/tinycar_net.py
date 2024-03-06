@@ -70,6 +70,19 @@ class TinycarCombo:
     def __call__(self, image: Tensor, maneuver: Tensor) -> Tensor:
         return self.forward(image, maneuver)
 
+class TinycarEncoder:
+    """
+    Only a wrapper to copy weights from combo to encoder
+    """
+    def __init__(self, image_dim: Tuple[int, int, int]):
+        self.encoder = Encoder(image_dim)
+    
+    def forward(self, x: Tensor) -> Tensor:
+        return self.encoder(x)
+    
+    def __call__(self, image: Tensor) -> Tensor:
+        return self.forward(image)
+
 class TinycarActor:
     def __init__(self, maneuver_dim: int, action_dim: int):
         self.steering = SteeringBlock(Encoder.FEATURE_VEC_SIZE, maneuver_dim, action_dim)
