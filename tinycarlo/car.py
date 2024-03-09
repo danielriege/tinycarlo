@@ -92,7 +92,7 @@ class Car():
         vxn: float = math.cos(self.rotation)
         vyn: float = math.sin(self.rotation)
 
-        if self.steering_angle == 0:
+        if abs(self.steering_angle) < 0.0001:
             self.radius = 0
 
             self.position[0] = self.position[0] + self.velocity * vxn * dt 
