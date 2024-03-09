@@ -19,4 +19,4 @@ camera:
   line_thickness: 20 # in px
 map:
   json_path: ./maps/simple_layout.json # path to map file
-  pixel_per_meter: 500
+  pixel_per_meter: 450
