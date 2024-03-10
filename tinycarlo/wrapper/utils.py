@@ -14,7 +14,7 @@ def sparse_reward(conditions: Dict[str, bool], sparse_rewards: Dict[str, float])
     """
     reward: float = 0.0
     for condition_name, condition in conditions.items():
-        if condition:
+        if condition and condition_name in sparse_rewards:
             reward += sparse_rewards[condition_name]
     return reward
 
