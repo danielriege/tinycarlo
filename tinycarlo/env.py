@@ -56,6 +56,7 @@ class TinyCarloEnv(gym.Env):
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode: Optional[str] = render_mode
+        self.no_observation: bool = False # NOTE: with this flag the observation rendering can be disabled if render_mode is also None
 
         """
         Gym specific setup of action and observation space
@@ -73,7 +74,10 @@ class TinyCarloEnv(gym.Env):
         self.reset()
 
     def __get_obs(self) -> np.ndarray:
-        return self.camera.capture_frame(self.observation_space_format)
+        if not self.no_observation or self.render_mode is not None:
+            return self.camera.capture_frame(self.observation_space_format)
+        else:
+            return np.zeros(self.observation_space.shape, dtype=np.uint8)
     
     def __get_info(self) -> Dict[str, Any]:
         cte, heading_error, distances, local_path = self.car.get_info()
