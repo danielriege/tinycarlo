@@ -2,14 +2,21 @@ from tinygrad.tensor import Tensor
 from tinygrad.helpers import fetch
 import tinygrad.nn as nn
 from typing import Union, Dict, Tuple
-
-from tinygrad.dtype import dtypes
-
-dtypes.default_float = dtypes.float16
     
 model_urls: Dict[Tuple[int,int,int], str] = {   
     (3,80,200): "http://riege.com.de/tinycarlo/tinycar_combo.safetensors"
 }
+
+class ConvBlock:
+    def __init__(self, in_channels: int, out_channels: int):
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, 2, 1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        
+    def forward(self, x: Tensor) -> Tensor:
+        return self.bn1(self.conv1(x)).relu().dropout(0.2)
+    
+    def __call__(self, x: Tensor) -> Tensor:
+        return self.forward(x)
 
 class TinycarEncoder:
     FEATURE_VEC_SIZE = 64
@@ -19,31 +26,19 @@ class TinycarEncoder:
         image_dim: (channels, height, width) of the input image
         """
         self.image_dim = image_dim
-
-        self.conv1 = nn.Conv2d(image_dim[0], 16, 3, 2)
-        self.bn1 = nn.InstanceNorm(16)
-        self.conv2 = nn.Conv2d(16, 24, 3, 2)
-        self.bn2 = nn.InstanceNorm(24)
-        self.conv3 = nn.Conv2d(24, 32, 3, 2)
-        self.bn3 = nn.InstanceNorm(32)
-        self.conv4 = nn.Conv2d(32, 48, 3, 2)
+        self.filters = [16, 32, 48, 64]
+        self.convs = [ConvBlock(image_dim[0] if i == 0 else self.filters[i-1], fts) for i,fts in enumerate(self.filters)]
         self.fc1 = nn.Linear(self.__calculate_conv_out_size(), 128)
         self.fc2 = nn.Linear(128, self.FEATURE_VEC_SIZE)
 
     def forward(self, x: Tensor) -> Tensor:
-        out = self.conv1(x).leakyrelu()
-        out = self.bn1(out)
-        out = self.conv2(out).leakyrelu()
-        out = self.bn2(out)
-        out = self.conv3(out).leakyrelu()
-        out = self.bn3(out)
-        out = self.conv4(out).leakyrelu().flatten(start_dim=1)
-        out = self.fc1(out).leakyrelu()
-        return self.fc2(out).leakyrelu()
+        out = x.sequential(self.convs).flatten(start_dim=1)
+        out = self.fc1(out).relu().dropout(0.2)
+        return self.fc2(out).relu()
     
     def __calculate_conv_out_size(self) -> int:
         x = Tensor.zeros(*self.image_dim).unsqueeze(0)
-        out = x.sequential([self.conv1, self.conv2, self.conv3, self.conv4]).flatten(start_dim=1)
+        out = x.sequential(self.convs).flatten(start_dim=1)
         return out.shape[1]
     
     def __call__(self, x: Tensor) -> Tensor:
@@ -52,14 +47,14 @@ class TinycarEncoder:
 class TinycarActor:
     def __init__(self, in_features: int = TinycarEncoder.FEATURE_VEC_SIZE, maneuver_dim: int = 4, action_dim: int = 1):
         self.fcm = nn.Linear(maneuver_dim, in_features)
-        self.fc1 = nn.Linear(in_features, 64)
+        self.fc1 = nn.Linear(in_features*2, 64)
         self.fc2 = nn.Linear(64, 32)
         self.fc3 = nn.Linear(32, action_dim)
 
     def forward(self, f: Tensor, m: Tensor) -> Tensor:
-        out = f + self.fcm(m).leakyrelu()
-        out = self.fc1(out).leakyrelu()
-        out = self.fc2(out).leakyrelu()
+        out = f.cat(self.fcm(m).relu(), dim=1)
+        out = self.fc1(out).relu().dropout(0.2)
+        out = self.fc2(out).relu().dropout(0.2)
         return self.fc3(out).tanh()
     
     def __call__(self, f: Tensor, m: Tensor) -> Tensor:

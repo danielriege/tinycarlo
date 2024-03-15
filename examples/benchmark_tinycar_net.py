@@ -68,7 +68,7 @@ if __name__ == "__main__":
     assert tinycar_combo.load_pretrained() == True
 
     for maneuver in range(3):
-        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env, maneuver=maneuver if maneuver != 2 else 3)
+        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env, maneuver=maneuver if maneuver != 2 else 3, steps=10000, episodes=1)
         print(f"Maneuver {maneuver} -> Total reward: {rew:.2f} | CTE: {cte:.4f} m/step | Heading Error: {heading_error:.4f} rad/step | Terminations: {terminations:3d} | perf: {stepss:.2f} steps/s")
     
 

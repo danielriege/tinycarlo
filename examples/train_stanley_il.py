@@ -4,7 +4,7 @@ from tinygrad import Tensor, TinyJit, nn, Device, GlobalCounters
 from typing import List
 from tinycarlo.helper import getenv
 
-import os
+import os, sys
 import numpy as np
 from tqdm import trange
 import time
@@ -14,16 +14,16 @@ import math
 from examples.models.tinycar_net import TinycarCombo
 from examples.benchmark_tinycar_net import pre_obs, evaluate
 
-
 LEARNING_RATE = 1e-3
-BATCH_SIZE = 32 #NOTE: for some reason, the training is not stable with larger batch sizes (it converges to the mean)
-STEPS = 4000
+BATCH_SIZE = 32 
+STEPS = 6000
 
 ### Data Collection
 STEP_SIZE = 500 # number of steps to take per episode
 BUFFER_SIZE = 30000
-BUFFER_SAVEFILE = "/tmp/stanley_training_data.npz" # when changing env params, delete this file to re-collect data
-MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors"
+BUFFER_SAVEFILE = "/tmp/stanley_training_data.npz" if len(sys.argv) != 2 else sys.argv[1]
+MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors" if len(sys.argv) != 3 else sys.argv[2]
+PLOT = getenv("PLOT")
 
 ENV_SEED = 2
 SPEED = 0.5
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     tinycar_combo = TinycarCombo(obs.shape)
     opt = nn.optim.Adam(nn.state.get_parameters(tinycar_combo), lr=LEARNING_RATE)
-    print(f"using Device: {Device.DEFAULT} | model params: {sum([p.numel() for p in nn.state.get_parameters(tinycar_combo)])}")
+    print(f"using Device: {Device.DEFAULT} | model params: {sum([p.numel() for p in nn.state.get_parameters(tinycar_combo)]):,}")
     # check if training data exists in /tmp
     if os.path.exists(BUFFER_SAVEFILE):
         print(f"Loading training data from disk: {BUFFER_SAVEFILE}")
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         Xn, Mn, Yn = Xn[:steps], Mn[:steps], Yn[:steps]
         np.savez_compressed(BUFFER_SAVEFILE, Xn=Xn, Mn=Mn, Yn=Yn)
     start_mem_used = GlobalCounters.mem_used
-    Xn, Mn, Yn = Xn.astype(np.float16), Mn.astype(np.float16), Yn.astype(np.float16)
+    Xn, Mn, Yn = Xn.astype(np.float32), Mn.astype(np.float32), Yn.astype(np.float32)
     X, M, Y = Tensor(Xn), Tensor(Mn), Tensor(Yn)
     del Xn, Mn, Yn
     print(f"Training data memory used: {(GlobalCounters.mem_used-start_mem_used)/1e9:.2f} GB")
@@ -99,7 +99,7 @@ if __name__ == "__main__":
             opt.zero_grad()
             samples = Tensor.randint(BATCH_SIZE, high=steps)
             out = tinycar_combo(X[samples], M[samples].one_hot(tinycar_combo.m_dim))
-            loss = (out - Y[samples]).abs().mean() 
+            loss = (out - Y[samples]).pow(2).mean() 
             loss.backward()
             opt.step()
             return loss
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             losses.append(loss_mean)
         t.set_description(f"loss: {loss_mean:.7f}")
 
-    if getenv("LOSS_GRAPH"): create_loss_graph(losses[1:])
+    if PLOT: create_loss_graph(losses[1:])
     
     print(f"Saving model to: {MODEL_SAVEFILE}")
     state_dict = nn.state.get_state_dict(tinycar_combo)
