@@ -43,7 +43,7 @@ def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: i
     terminated, truncated = False, False
     for i in range(int(steps * episodes)):
         st = time.perf_counter()
-        steering_angle = get_steering_angle(x=Tensor(pre_obs(obs)).unsqueeze(0), m=Tensor(maneuver).unsqueeze(0)).item()
+        steering_angle = get_steering_angle(x=Tensor(pre_obs(obs.astype(np.float32))).unsqueeze(0), m=Tensor(maneuver).unsqueeze(0)).item()
         inf_time.append(time.perf_counter() - st)
         obs, rew, terminated, truncated, info = env.step({"car_control": [speed, steering_angle], "maneuver": maneuver})
         total_rew += rew
