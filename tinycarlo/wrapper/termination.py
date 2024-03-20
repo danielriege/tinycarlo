@@ -36,6 +36,6 @@ class CTETerminationWrapper(Wrapper):
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
-        if info["cte"] > abs(self.max_cte):
+        if abs(info["cte"]) > self.max_cte:
             terminated = True
         return observation, reward, terminated, truncated, info
