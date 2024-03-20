@@ -105,7 +105,13 @@ if __name__ == "__main__":
             actor_loss = -critic(feature_vec, m, actor(feature_vec, m)).mean()
             actor_loss.backward()
             opt_actor.step()
-            return loss, actor_loss
+        
+        # update target networks with soft update
+        for v, v_target in zip(nn.state.get_parameters(actor), nn.state.get_parameters(actor_target)):
+            v_target.assign(TAU * v.detach() + (1 - TAU) * v_target.detach())
+        for v, v_target in zip(nn.state.get_parameters(critic), nn.state.get_parameters(critic_target)):
+            v_target.assign(TAU * v.detach() + (1 - TAU) * v_target.detach())
+        return loss, actor_loss
 
     @TinyJit
     def get_action(obs: Tensor, maneuver: Tensor) -> Tensor:
@@ -113,7 +119,7 @@ if __name__ == "__main__":
         Tensor.no_grad = True
         feature_vec = encoder(obs.unsqueeze(0))
         noise += NOISE_THETA * (0.0 - noise) + 0.2 * Tensor.randn(action_dim) # Ornstein-Uhlenbeck process
-        ret = (actor(feature_vec, maneuver.unsqueeze(0))[0] + exploration_rate * noise).realize()
+        ret = (actor(feature_vec, maneuver.unsqueeze(0))[0] + exploration_rate * noise).clip(-1,1).realize()
         Tensor.no_grad = False
         return ret
     
@@ -140,11 +146,6 @@ if __name__ == "__main__":
                 #print(critic_loss.item(), actor_loss.item(), test.numpy(), test2.numpy())
                 critic_losses.append(critic_loss.item())
                 actor_losses.append(actor_loss.item())
-                # update target networks with soft update
-                for v, v_target in zip(nn.state.get_parameters(actor), nn.state.get_parameters(actor_target)):
-                    v_target.assign(TAU * v.detach() + (1 - TAU) * v_target.detach())
-                for v, v_target in zip(nn.state.get_parameters(critic), nn.state.get_parameters(critic_target)):
-                    v_target.assign(TAU * v.detach() + (1 - TAU) * v_target.detach())
 
                 t.set_description(f"sz: {replay_buffer.rp_sz:5d} | steps/s: {steps/(time.perf_counter()-st):.2f} | rew: {ep_rew:5.2f} | rew/ep {total_rew/(episode_number+1):2.2f}| critic loss: {sum(critic_losses)/len(critic_losses):.3f} | actor loss: {sum(actor_losses)/len(actor_losses):.3f}")
         total_rew += ep_rew
