@@ -16,7 +16,7 @@ from examples.models.tinycar_net import TinycarCombo
 IMAGE_DIM = (200, 80)
 ENV_SEED = 1
 
-def pre_obs(obs: np.ndarray, image_dim: Tuple[int, int] = (200,80)) -> np.ndarray:
+def pre_obs(obs: np.ndarray, image_dim: Tuple[int, int] = IMAGE_DIM) -> np.ndarray:
     # cropping, resizing, and normalizing the image
     return np.stack([cv2.resize(obs[i,obs.shape[1]//2:,:], image_dim)/255 for i in range(obs.shape[0])], axis=0)
 
