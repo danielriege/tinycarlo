@@ -9,58 +9,39 @@ from tqdm import trange
 import time
 import cv2
 
-from tinycarlo.wrapper.reward import CTELinearRewardWrapper
+from tinycarlo.wrapper.reward import CTELinearRewardWrapper, LanelineSparseRewardWrapper
 from tinycarlo.wrapper.termination import LanelineCrossingTerminationWrapper, CTETerminationWrapper
-from examples.models.tinycar_net import TinycarActor, TinycarCritic, TinycarEncoder
+from examples.models.tinycar_net import TinycarActor, TinycarCritic, TinycarCombo, TinycarEncoder
+from examples.benchmark_tinycar_net import pre_obs, evaluate
 
 # *** hyperparameters ***
 
-BATCH_SIZE = 32
-REPLAY_BUFFER_SIZE = 10000
-LEARNING_RATE_ACTOR = 1e-4
-LEARNING_RATE_CRITIC = 1e-3
+BATCH_SIZE = 64
+REPLAY_BUFFER_SIZE = 20000
+LEARNING_RATE_ACTOR = 1e-3
+LEARNING_RATE_CRITIC = 2e-3
 EPISODES = 100
-DISCOUNT_FACTOR = 0.9
-TAU = 0.01 # soft update parameter
+DISCOUNT_FACTOR = 0.99
+TAU = 0.005 # soft update parameter
+MAX_STEPS = 1000
 
 # *** environment parameters ***
-ENV_SEED = 2
-MANEUVER = 0
 SPEED = 0.5
-IMAGE_DIM = (200, 80)
-MANEUVER_DIM = 3
-ACTION_DIM = 1
-COMBO_WEIGHTS_PATH = "/tmp/tinycar_combo.safetensors"
 
 # *** noise parameters ***
 NOISE_THETA = 0.15
 
-def pre_obs(obs: np.ndarray) -> np.ndarray:
-    # cropping, resizing, and normalizing the image
-    return np.stack([cv2.resize(obs[i,obs.shape[1]//2:,:], IMAGE_DIM)/255 for i in range(obs.shape[0])], axis=0)
-
-def evaluate(actor: TinycarActor, env):
-    obs, terminated, truncated = pre_obs(env.reset()[0]), False, False
-    total_rew = 0.0
-    while not terminated and not truncated:
-        act = actor(Tensor(obs)).numpy()
-        obs, rew, terminated, truncated, _ = env.step({"car_control": [0.6, act[1]], "maneuver": MANEUVER})
-        total_rew += rew
-    return total_rew
+MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors"
 
 class replaybuffer:
     def __init__(self, size: int, batch_size: int, obs_shape: Tuple[int,int,int], maneuver_dim: int, action_dim: int) -> None:
         self.size, self.batch_size, self.obs_shape, self.maneuver_dim, self.action_dim = size, batch_size, obs_shape, maneuver_dim, action_dim
         self.X, self.M, self.A, self.R, self.X1 = np.zeros((size, *obs_shape), dtype=np.float32), np.zeros((size,), dtype=np.float32), np.zeros((size,self.action_dim), dtype=np.float32), np.zeros((size,1), dtype=np.float32), np.zeros((size, *obs_shape), dtype=np.float32)
-        self.rp_idx, self.rp_sz = 0, 0
+        self.rp_sz = 0
     
     def add(self, x, m, a, r, x1) -> None:
-        self.X[self.rp_idx] = x
-        self.M[self.rp_idx] = m
-        self.A[self.rp_idx] = a
-        self.R[self.rp_idx] = r
-        self.X1[self.rp_idx] = x1
-        self.rp_idx = (self.rp_idx + 1) % self.size
+        rp_idx = self.rp_sz if self.rp_sz < self.size else np.random.randint(0, self.size)
+        self.X[rp_idx], self.M[rp_idx], self.A[rp_idx], self.R[rp_idx], self.X1[rp_idx] = x, m, a, r, x1
         self.rp_sz = min(self.rp_sz + 1, self.size)
 
     def sample(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -74,23 +55,22 @@ class replaybuffer:
     
 if __name__ == "__main__":
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config_simple_layout.yaml")
-    env = gym.make("tinycarlo-v2", config=config_path, render_mode="human")
-    env = LanelineCrossingTerminationWrapper(env, "outer")
-    env = CTETerminationWrapper(env, max_cte=0.2)
+    env = gym.make("tinycarlo-v2", config=config_path)
+
     env = CTELinearRewardWrapper(env, min_cte=0.03, max_reward=1.0)
+    env = LanelineSparseRewardWrapper(env, sparse_rewards={"outer": -10.0})
+    env = CTETerminationWrapper(env, max_cte=0.1)
 
-    obs = pre_obs(env.reset(seed=ENV_SEED)[0]) # seed the environment and get obs shape
-    encoder = TinycarEncoder(obs.shape)
+    obs = pre_obs(env.reset()[0]) # seed the environment and get obs shape
+    tinycar_combo = TinycarCombo(obs.shape)
+    tinycar_combo.load_pretrained()
+    encoder = tinycar_combo.encoder
+    actor = tinycar_combo.actor # pre trained actor
+    actor_target = TinycarActor()
+    critic = TinycarCritic()
+    critic_target = TinycarCritic()
+    action_dim, maneuver_dim = tinycar_combo.a_dim, tinycar_combo.m_dim
 
-    actor = TinycarActor(MANEUVER_DIM, ACTION_DIM)
-    actor_target = TinycarActor(MANEUVER_DIM, ACTION_DIM)
-    critic = TinycarCritic(MANEUVER_DIM, ACTION_DIM)
-    critic_target = TinycarCritic(MANEUVER_DIM, ACTION_DIM)
-
-    print("loading pretrained weights for actor and encoder")
-    state_dict_combo = nn.state.safe_load(COMBO_WEIGHTS_PATH)
-    nn.state.load_state_dict(encoder, state_dict_combo)
-    nn.state.load_state_dict(actor, state_dict_combo)
     # load the same weights into the target networks initially
     for v, v_target in zip(nn.state.get_parameters(actor), nn.state.get_parameters(actor_target)):
         v_target.assign(v.detach())
@@ -100,9 +80,10 @@ if __name__ == "__main__":
     opt_actor = nn.optim.Adam(nn.state.get_parameters(actor), lr=LEARNING_RATE_ACTOR)
     opt_critic = nn.optim.Adam(nn.state.get_parameters(critic), lr=LEARNING_RATE_CRITIC)
 
-    replay_buffer = replaybuffer(REPLAY_BUFFER_SIZE, BATCH_SIZE, obs.shape, MANEUVER_DIM, ACTION_DIM)
+    replay_buffer = replaybuffer(REPLAY_BUFFER_SIZE, BATCH_SIZE, obs.shape, maneuver_dim, action_dim)
 
-    noise = Tensor.zeros(ACTION_DIM)
+    noise = Tensor.zeros(action_dim)
+    exploration_rate = 1.0
 
     print(f"using Device: {Device.DEFAULT} | actor params {sum([p.numel() for p in nn.state.get_parameters(actor)])} | critic params {sum([p.numel() for p in nn.state.get_parameters(critic)])}")
 
@@ -128,28 +109,31 @@ if __name__ == "__main__":
 
     @TinyJit
     def get_action(obs: Tensor, maneuver: Tensor) -> Tensor:
-        global noise
+        global noise, exploration_rate
         Tensor.no_grad = True
         feature_vec = encoder(obs.unsqueeze(0))
-        noise += NOISE_THETA * (0.0 - noise) + 0.2 * Tensor.randn(ACTION_DIM) # Ornstein-Uhlenbeck process
-        ret = (actor(feature_vec, maneuver.unsqueeze(0))[0] + noise).realize()
+        noise += NOISE_THETA * (0.0 - noise) + 0.2 * Tensor.randn(action_dim) # Ornstein-Uhlenbeck process
+        ret = (actor(feature_vec, maneuver.unsqueeze(0))[0] + exploration_rate * noise).realize()
         Tensor.no_grad = False
         return ret
     
-    st, steps = time.perf_counter(), 0
+    st, steps, ep_steps = time.perf_counter(), 0, 0
+    total_rew, ep_rew = 0.0, 0.0
     for episode_number in (t:=trange(EPISODES)):
         obs = pre_obs(env.reset()[0])
-        rews, terminated, truncated = [], False, False
+        terminated, truncated = False, False
         maneuver = np.random.randint(0,3)
-        critic_losses, actor_losses = [0], [0]
-        while not terminated and not truncated:
-            act = get_action(Tensor(obs), Tensor(maneuver).one_hot(MANEUVER_DIM)).item()
+        critic_losses, actor_losses = [], []
+        exploration_rate = 1-(episode_number / EPISODES)
+        while not terminated and not truncated and ep_steps < MAX_STEPS:
+            act = get_action(Tensor(obs), Tensor(maneuver).one_hot(maneuver_dim)).item()
             obs_next, rew, terminated, truncated, _ = env.step({"car_control": [SPEED, act], "maneuver": maneuver if maneuver != 2 else 3})
             obs_next = pre_obs(obs_next)
             replay_buffer.add(obs, maneuver, act, rew, obs_next)
-            rews.append(rew)
+            ep_rew += rew
             obs = obs_next
             steps += 1
+            ep_steps += 1
             if steps >= BATCH_SIZE:
                 # update the actor and critic networks
                 critic_loss, actor_loss = train_step(*replay_buffer.sample())
@@ -162,7 +146,14 @@ if __name__ == "__main__":
                 for v, v_target in zip(nn.state.get_parameters(critic), nn.state.get_parameters(critic_target)):
                     v_target.assign(TAU * v.detach() + (1 - TAU) * v_target.detach())
 
-        t.set_description(f"sz: {replay_buffer.rp_sz:5d} | steps/s: {steps/(time.perf_counter()-st):.2f} | rew: {sum(rews):6.2f} | critic loss: {sum(critic_losses)/len(critic_losses):.6f} | actor loss: {sum(actor_losses)/len(actor_losses):.6f}")
+                t.set_description(f"sz: {replay_buffer.rp_sz:5d} | steps/s: {steps/(time.perf_counter()-st):.2f} | rew: {ep_rew:5.2f} | rew/ep {total_rew/(episode_number+1):2.2f}| critic loss: {sum(critic_losses)/len(critic_losses):.3f} | actor loss: {sum(actor_losses)/len(actor_losses):.3f}")
+        total_rew += ep_rew
+        ep_rew, ep_steps = 0.0, 0
 
-    test_rew = evaluate(actor, env)
-    print(f"test reward: {test_rew}")
+    print(f"Saving model to: {MODEL_SAVEFILE}")
+    state_dict = nn.state.get_state_dict(tinycar_combo)
+    nn.state.safe_save(state_dict, MODEL_SAVEFILE)
+    print("Evaluating:")
+    for maneuver in range(3):
+        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env.unwrapped, maneuver=maneuver if maneuver != 2 else 3, render_mode="human")
+        print(f"Maneuver {maneuver} -> Total reward: {rew:.2f} | CTE: {cte:.4f} m/step | H-Error: {heading_error:.4f} rad/step | Terms: {terminations:3d} | perf: {stepss:.2f} steps/s")

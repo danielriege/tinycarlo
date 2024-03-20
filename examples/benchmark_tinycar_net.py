@@ -20,12 +20,12 @@ def pre_obs(obs: np.ndarray, image_dim: Tuple[int, int] = (200,80)) -> np.ndarra
     # cropping, resizing, and normalizing the image
     return np.stack([cv2.resize(obs[i,obs.shape[1]//2:,:], image_dim)/255 for i in range(obs.shape[0])], axis=0)
 
-def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: int = 0, speed = 0.5, steps = 1000, episodes = 5) -> Tuple[float, float, float, int, float]:
+def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: int = 0, speed = 0.5, steps = 5000, episodes = 5, render_mode=None) -> Tuple[float, float, float, int, float]:
     """
     Tests the model in the environment for a given maneuver.
     Returns total reward, average CTE, and average heading error
     """
-    unwrapped_env.unwrapped.render_mode = "human"
+    unwrapped_env.unwrapped.render_mode = render_mode
 
     env = CTELinearRewardWrapper(unwrapped_env, min_cte=0.03, max_reward=1.0)
     env = LanelineSparseRewardWrapper(env, sparse_rewards={"outer": -10.0})
@@ -54,8 +54,6 @@ def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: i
             obs = env.reset()[0]
         if i % steps == 0:
             obs = env.reset()[0]
-
-
     return total_rew, sum(cte) / len(cte), sum(heading_error) / len(heading_error), terminations, steps * episodes / sum(inf_time)
     
 if __name__ == "__main__":
