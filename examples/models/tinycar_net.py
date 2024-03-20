@@ -4,7 +4,8 @@ import tinygrad.nn as nn
 from typing import Union, Dict, Tuple
     
 model_urls: Dict[Tuple[int,int,int], str] = {   
-    (3,80,200): "http://riege.com.de/tinycarlo/tinycar_combo.safetensors"
+    (3,80,200): "http://riege.com.de/tinycarlo/tinycar_combo.safetensors",
+    (5,80,200): "http://riege.com.de/tinycarlo/tinycar_combo_5.safetensors",
 }
 
 class ConvBlock:
