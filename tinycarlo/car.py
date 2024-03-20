@@ -47,7 +47,7 @@ class Car():
         empty_info = 0, 0, {layer_name: 0 for layer_name in self.map.get_laneline_names()}, []
 
         # calculate heading and cross track error by first updating nearest edge and next edge
-        if self.local_path is None or len(self.local_path) < 2:
+        if self.local_path is None or len(self.local_path) < 2 or not all(map(lambda x: all(x), self.local_path)):
             return empty_info
         cte: float = self.map.lanepath.distance_to_edge(self.position_front, self.local_path[1])
         heading_error: float = clip_angle(self.map.lanepath.orientation_of_edge(self.local_path[1]) - self.rotation)
