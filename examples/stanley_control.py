@@ -31,7 +31,7 @@ config = {
     },
     "map": {
         "json_path": os.path.join(os.path.dirname(__file__), "maps/knuffingen.json"),
-        "pixel_per_meter": 266
+        "pixel_per_meter": 250
     }
 }
 env = gym.make("tinycarlo-v2", config=config, render_mode="human")
