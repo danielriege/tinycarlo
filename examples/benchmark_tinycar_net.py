@@ -8,17 +8,14 @@ import os
 import numpy as np
 from tqdm import trange
 import time
-import cv2
-import math
 
 from examples.models.tinycar_net import TinycarCombo
 
-IMAGE_DIM = (160, 64)
 ENV_SEED = 1
 
-def pre_obs(obs: np.ndarray, image_dim: Tuple[int, int] = IMAGE_DIM) -> np.ndarray:
-    # cropping, resizing, and normalizing the image
-    return np.stack([cv2.resize(obs[i,obs.shape[1]//2:,:], image_dim)/255 for i in range(obs.shape[0])], axis=0)
+def pre_obs(obs: np.ndarray) -> np.ndarray:
+    # cropping and normalizing the image
+    return np.stack([obs[i,obs.shape[1]//2:,:]/255 for i in range(obs.shape[0])], axis=0)
 
 def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: int = 0, speed = 0.5, steps = 5000, episodes = 5, render_mode=None) -> Tuple[float, float, float, int, float]:
     """

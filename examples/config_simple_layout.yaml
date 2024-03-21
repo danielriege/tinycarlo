@@ -13,10 +13,10 @@ car:
 camera:
   position: [0.02,0,0.024] # [x,y,z] in m relative to middle of front axle (x: forward, y: right, z: up)
   orientation: [15,0,0] # [pitch,roll,yaw] in degrees
-  resolution: [480,640] # [height, width] in px
+  resolution: [128,160] # [height, width] in px
   fov: 120 # in degrees
   max_range: 0.5 # in m (can be None for infinite range)
-  line_thickness: 20 # in px
+  line_thickness: 14 # in px
 map:
   json_path: ./maps/simple_layout.json # path to map file
   pixel_per_meter: 450
