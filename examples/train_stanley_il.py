@@ -4,23 +4,20 @@ from tinygrad import Tensor, TinyJit, nn, Device, GlobalCounters
 from typing import List
 from tinycarlo.helper import getenv
 
-import os, sys
+import os, sys, math
 import numpy as np
 from tqdm import trange
-import time
-import cv2
-import math
 
 from examples.models.tinycar_net import TinycarCombo
 from examples.benchmark_tinycar_net import pre_obs, evaluate
 
 LEARNING_RATE = 1e-3
-BATCH_SIZE = 32 
+BATCH_SIZE = 32
 STEPS = 6000
 
 ### Data Collection
-STEP_SIZE = 500 # number of steps to take per episode
-BUFFER_SIZE = 30000
+STEP_SIZE = 2000 # number of steps to take per episode
+BUFFER_SIZE = 60000
 BUFFER_SAVEFILE = "/tmp/stanley_training_data.npz" if len(sys.argv) != 2 else sys.argv[1]
 MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors" if len(sys.argv) != 3 else sys.argv[2]
 PLOT = getenv("PLOT")
@@ -86,27 +83,24 @@ if __name__ == "__main__":
         # save to disk
         Xn, Mn, Yn = Xn[:steps], Mn[:steps], Yn[:steps]
         np.savez_compressed(BUFFER_SAVEFILE, Xn=Xn, Mn=Mn, Yn=Yn)
-    start_mem_used = GlobalCounters.mem_used
     Xn, Mn, Yn = Xn.astype(np.float32), Mn.astype(np.float32), Yn.astype(np.float32)
-    X, M, Y = Tensor(Xn), Tensor(Mn), Tensor(Yn)
-    del Xn, Mn, Yn
-    print(f"Training data memory used: {(GlobalCounters.mem_used-start_mem_used)/1e9:.2f} GB")
+    print(f"Training data memory used: {sum([x.size * x.itemsize for x in [Xn, Mn, Yn]])/1e9:.2f} GB")
     print("Training:")
 
     @TinyJit
-    def train_step() -> Tensor:
+    def train_step(x: Tensor, m: Tensor, y: Tensor) -> Tensor:
         with Tensor.train():
             opt.zero_grad()
-            samples = Tensor.randint(BATCH_SIZE, high=steps)
-            out = tinycar_combo(X[samples], M[samples].one_hot(tinycar_combo.m_dim))
-            loss = (out - Y[samples]).pow(2).mean() 
+            out = tinycar_combo(x, m.one_hot(tinycar_combo.m_dim))
+            loss = (out - y).pow(2).mean() 
             loss.backward()
             opt.step()
             return loss
     
     losses, loss, loss_mean = [], 0, float("inf")
     for step in (t:=trange(STEPS)):
-        loss += train_step().item()
+        samples = np.random.randint(0, steps, BATCH_SIZE)
+        loss += train_step(Tensor(Xn[samples]), Tensor(Mn[samples]), Tensor(Yn[samples])).item()
         if step % 10 == 0:
             loss_mean = loss / 10
             loss = 0
@@ -120,7 +114,7 @@ if __name__ == "__main__":
     nn.state.safe_save(state_dict, MODEL_SAVEFILE)
     print("Evaluating:")
     for maneuver in range(3):
-        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env, maneuver=maneuver if maneuver != 2 else 3)
+        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env, maneuver=maneuver if maneuver != 2 else 3, render_mode="human")
         print(f"Maneuver {maneuver} -> Total reward: {rew:.2f} | CTE: {cte:.4f} m/step | H-Error: {heading_error:.4f} rad/step | Terms: {terminations:3d} | perf: {stepss:.2f} steps/s")
 
 
