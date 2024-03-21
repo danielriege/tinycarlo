@@ -1,7 +1,7 @@
 import gymnasium as gym
 import tinycarlo
 from tinygrad import Tensor, TinyJit, nn, Device
-from typing import Tuple
+from typing import Tuple, List
 
 import os
 import numpy as np
@@ -12,13 +12,14 @@ from tinycarlo.wrapper.reward import CTELinearRewardWrapper, LanelineSparseRewar
 from tinycarlo.wrapper.termination import LanelineCrossingTerminationWrapper, CTETerminationWrapper
 from examples.models.tinycar_net import TinycarActor, TinycarCritic, TinycarCombo, TinycarEncoder
 from examples.benchmark_tinycar_net import pre_obs, evaluate
+from tinycarlo.helper import getenv
 
 # *** hyperparameters ***
-BATCH_SIZE = 64
-REPLAY_BUFFER_SIZE = 20000
-LEARNING_RATE_ACTOR = 1e-3
-LEARNING_RATE_CRITIC = 2e-3
-EPISODES = 100
+BATCH_SIZE = 32
+REPLAY_BUFFER_SIZE = 30000
+LEARNING_RATE_ACTOR = 1e-4
+LEARNING_RATE_CRITIC = 2e-4
+EPISODES = 300
 DISCOUNT_FACTOR = 0.99
 TAU = 0.005  # soft update parameter
 TARGET_POLICY_NOISE = 0.2  # Noise added to target policy
@@ -29,7 +30,34 @@ MAX_STEPS = 1000
 # *** environment parameters ***
 SPEED = 0.5
 
-MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors"
+MODEL_SAVEFILE = "/tmp/tinycar_combo_td3.safetensors"
+PLOT = getenv("PLOT")
+
+def create_critic_loss_graph(c1_loss: List[float], c2_loss: List[float]):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(c1_loss)
+    plt.plot(c2_loss)
+    plt.legend(["Critic 1 Loss", "Critic 2 Loss"])
+    plt.xlabel("Steps")
+    plt.ylabel("Loss")
+    plt.savefig("/tmp/critic_loss.png")
+
+def create_action_loss_graph(a_loss: List[float]):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(a_loss)
+    plt.xlabel("Steps")
+    plt.ylabel("Loss")
+    plt.savefig("/tmp/actor_loss.png")
+
+def create_ep_rew_graph(ep_rews: List[float]):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(ep_rews)
+    plt.xlabel("Episodes")
+    plt.ylabel("Episodic Reward")
+    plt.savefig("/tmp/ep_rew.png")
 
 class replaybuffer:
     def __init__(self, size: int, batch_size: int, obs_shape: Tuple[int, int, int], maneuver_dim: int, action_dim: int) -> None:
@@ -52,10 +80,11 @@ class replaybuffer:
 
 if __name__ == "__main__":
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config_simple_layout.yaml")
-    env = gym.make("tinycarlo-v2", config=config_path, render_mode="human")
+    env = gym.make("tinycarlo-v2", config=config_path)
 
     env = CTELinearRewardWrapper(env, min_cte=0.03, max_reward=1.0)
-    env = LanelineSparseRewardWrapper(env, sparse_rewards={"outer": -10.0})
+    env = LanelineSparseRewardWrapper(env, sparse_rewards={"solid": -5.0, "area": -5.0})
+    env = LanelineCrossingTerminationWrapper(env, ["outer"])
     env = CTETerminationWrapper(env, max_cte=0.1)
 
     obs = pre_obs(env.reset()[0])  # seed the environment and get obs shape
@@ -141,7 +170,8 @@ if __name__ == "__main__":
         return action.clip(-1, 1)  # Ensure actions are within valid range
 
     st, steps, ep_steps = time.perf_counter(), 0, 0
-    total_rew, ep_rew = 0.0, 0.0
+    total_rew, ep_rew, ep_rews = 0.0, 0.0, []
+    c1_loss, c2_loss, a_loss = [],[],[]
     for episode_number in (t := trange(EPISODES)):
         obs = pre_obs(env.reset()[0])
         terminated, truncated = False, False
@@ -167,12 +197,21 @@ if __name__ == "__main__":
                 t.set_description(
                     f"sz: {replay_buffer.rp_sz:5d} | steps/s: {steps / (time.perf_counter() - st):.2f} | rew: {ep_rew:.2f} | rew/ep {total_rew / (episode_number + 1):2.2f}| critic1 loss: {sum(critic1_losses) / len(critic1_losses):.3f} | critic2 loss: {sum(critic2_losses) / len(critic2_losses):.3f}")
         total_rew += ep_rew
+        ep_rews.append(ep_rew)
         ep_rew, ep_steps = 0.0, 0
+        c1_loss.extend(critic1_losses)
+        c2_loss.extend(critic2_losses)
+        a_loss.extend(actor_losses)
 
     print(f"Saving model to: {MODEL_SAVEFILE}")
     state_dict = nn.state.get_state_dict(tinycar_combo)
     nn.state.safe_save(state_dict, MODEL_SAVEFILE)
+
+    if PLOT: create_critic_loss_graph(c1_loss, c2_loss)
+    if PLOT: create_action_loss_graph(a_loss)
+    if PLOT: create_ep_rew_graph(ep_rews)
+
     print("Evaluating:")
     for maneuver in range(3):
-        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env.unwrapped, maneuver=maneuver if maneuver != 2 else 3,render_mode="human")
+        rew, cte, heading_error, terminations, stepss = evaluate(tinycar_combo, env.unwrapped, maneuver=maneuver if maneuver != 2 else 3,render_mode="human", steps=2000, episodes=5)
         print(f"Maneuver {maneuver} -> Total reward: {rew:.2f} | CTE: {cte:.4f} m/step | H-Error: {heading_error:.4f} rad/step | Terms: {terminations:3d} | perf: {stepss:.2f} steps/s")
