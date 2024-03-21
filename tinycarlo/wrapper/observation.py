@@ -28,6 +28,6 @@ class NoiseObservationWrapper(Wrapper):
 
     def step(self, action):
         observation, reward, terminated, truncated, info = self.env.step(action)
-        if self.env.unwrapped.observation_space_format == "classes":
+        if self.env.unwrapped.observation_space_format == "classes" and not self.env.unwrapped.no_observation:
             observation = self.add_blob_noise_classes(observation)
         return observation, reward, terminated, truncated, info
