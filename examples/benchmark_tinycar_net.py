@@ -17,7 +17,7 @@ def pre_obs(obs: np.ndarray) -> np.ndarray:
     # cropping and normalizing the image
     return np.stack([obs[i,obs.shape[1]//2:,:]/255 for i in range(obs.shape[0])], axis=0)
 
-def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: int = 0, speed = 0.5, steps = 5000, episodes = 5, render_mode=None) -> Tuple[float, float, float, int, float]:
+def evaluate(model: TinycarCombo, unwrapped_env: gym.Env, maneuver: int, seed: int = 0, speed = 0.3, steps = 5000, episodes = 5, render_mode=None) -> Tuple[float, float, float, int, float]:
     """
     Tests the model in the environment for a given maneuver.
     Returns total reward, average CTE, and average heading error
