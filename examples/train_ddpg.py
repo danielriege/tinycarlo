@@ -1,7 +1,7 @@
 import gymnasium as gym
 import tinycarlo
 from tinygrad import Tensor, TinyJit, nn, Device
-from typing import Tuple
+from typing import Tuple, List
 
 import os
 import numpy as np
@@ -13,14 +13,15 @@ from tinycarlo.wrapper.reward import CTELinearRewardWrapper, LanelineSparseRewar
 from tinycarlo.wrapper.termination import LanelineCrossingTerminationWrapper, CTETerminationWrapper
 from examples.models.tinycar_net import TinycarActor, TinycarCritic, TinycarCombo, TinycarEncoder
 from examples.benchmark_tinycar_net import pre_obs, evaluate
+from tinycarlo.helper import getenv
 
 # *** hyperparameters ***
 
-BATCH_SIZE = 64
-REPLAY_BUFFER_SIZE = 20000
+BATCH_SIZE = 32
+REPLAY_BUFFER_SIZE = 70000
 LEARNING_RATE_ACTOR = 1e-3
 LEARNING_RATE_CRITIC = 2e-3
-EPISODES = 100
+EPISODES = 300
 DISCOUNT_FACTOR = 0.99
 TAU = 0.005 # soft update parameter
 MAX_STEPS = 1000
@@ -32,6 +33,39 @@ SPEED = 0.5
 NOISE_THETA = 0.15
 
 MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors"
+PLOT = getenv("PLOT")
+
+def create_critic_loss_graph(c_loss: List[float]):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(mv(c_loss))
+    plt.xlabel("Steps")
+    plt.ylabel("Loss")
+    plt.savefig("/tmp/critic_loss.png")
+
+def create_action_loss_graph(a_loss: List[float]):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(mv(a_loss))
+    plt.xlabel("Steps")
+    plt.ylabel("Loss")
+    plt.savefig("/tmp/actor_loss.png")
+
+def create_ep_rew_graph(ep_rews: List[float]):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(ep_rews)
+    plt.xlabel("Episodes")
+    plt.ylabel("Episodic Reward")
+    plt.savefig("/tmp/ep_rew.png")
+
+def avg_w(x: List[float], w: int = 10) -> List[float]:
+    if len(x) < w:
+        return float("inf")
+    return sum(x[-w:]) / w
+
+def mv(x: List[float], w: int = 50) -> List[float]:
+    return [sum(x[i:i+w])/w for i in range(len(x)-w)]
 
 class replaybuffer:
     def __init__(self, size: int, batch_size: int, obs_shape: Tuple[int,int,int], maneuver_dim: int, action_dim: int) -> None:
@@ -57,9 +91,9 @@ if __name__ == "__main__":
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config_simple_layout.yaml")
     env = gym.make("tinycarlo-v2", config=config_path)
 
-    env = CTELinearRewardWrapper(env, min_cte=0.03, max_reward=1.0)
-    env = LanelineSparseRewardWrapper(env, sparse_rewards={"outer": -10.0})
-    env = CTETerminationWrapper(env, max_cte=0.1)
+    env = CTELinearRewardWrapper(env, min_cte=0.04, max_reward=1.0)
+    #env = LanelineSparseRewardWrapper(env, sparse_rewards={"outer": -10.0})
+    env = CTETerminationWrapper(env, max_cte=0.2)
 
     obs = pre_obs(env.reset()[0]) # seed the environment and get obs shape
     tinycar_combo = TinycarCombo(obs.shape)
@@ -124,13 +158,15 @@ if __name__ == "__main__":
         return ret
     
     st, steps, ep_steps = time.perf_counter(), 0, 0
-    total_rew, ep_rew = 0.0, 0.0
+    ep_rews, ep_rew = [], 0.0
+    critic_losses, actor_losses = [], []
     for episode_number in (t:=trange(EPISODES)):
+        if episode_number % 10 == 0:
+            env.unwrapped.render_mode = "human"
         obs = pre_obs(env.reset()[0])
         terminated, truncated = False, False
         maneuver = np.random.randint(0,3)
-        critic_losses, actor_losses = [], []
-        exploration_rate = 1-(episode_number / EPISODES)
+        #exploration_rate = 1-(episode_number / EPISODES)
         while not terminated and not truncated and ep_steps < MAX_STEPS:
             act = get_action(Tensor(obs), Tensor(maneuver).one_hot(maneuver_dim)).item()
             obs_next, rew, terminated, truncated, _ = env.step({"car_control": [SPEED, act], "maneuver": maneuver if maneuver != 2 else 3})
@@ -143,13 +179,17 @@ if __name__ == "__main__":
             if steps >= BATCH_SIZE:
                 # update the actor and critic networks
                 critic_loss, actor_loss = train_step(*replay_buffer.sample())
-                #print(critic_loss.item(), actor_loss.item(), test.numpy(), test2.numpy())
                 critic_losses.append(critic_loss.item())
                 actor_losses.append(actor_loss.item())
 
-                t.set_description(f"sz: {replay_buffer.rp_sz:5d} | steps/s: {steps/(time.perf_counter()-st):.2f} | rew: {ep_rew:5.2f} | rew/ep {total_rew/(episode_number+1):2.2f}| critic loss: {sum(critic_losses)/len(critic_losses):.3f} | actor loss: {sum(actor_losses)/len(actor_losses):.3f}")
-        total_rew += ep_rew
+                t.set_description(f"sz: {replay_buffer.rp_sz:5d} | steps/s: {steps/(time.perf_counter()-st):.2f} | rew: {ep_rew:5.2f} | rew/ep {sum(ep_rews)/(episode_number+1):2.2f}| critic loss: {avg_w(critic_losses):.3f} | actor loss: {avg_w(actor_losses):.3f}")
+        ep_rews.append(ep_rew)
         ep_rew, ep_steps = 0.0, 0
+        env.unwrapped.render_mode = None
+
+    if PLOT: create_action_loss_graph(actor_losses)
+    if PLOT: create_critic_loss_graph(critic_losses)
+    if PLOT: create_ep_rew_graph(ep_rews)
 
     print(f"Saving model to: {MODEL_SAVEFILE}")
     state_dict = nn.state.get_state_dict(tinycar_combo)
