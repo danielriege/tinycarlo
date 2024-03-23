@@ -45,6 +45,10 @@ class Camera():
     def get_last_frame_rgb(self) -> Optional[np.ndarray]: return self.last_frame_rgb
     
     def get_last_frame_classes(self) -> Optional[np.ndarray]: return self.last_frame_classes
+
+    def update_params(self):
+        self.E = self.__get_extrinsic_matrix()
+        self.K = self.__get_intrinsic_matrix()
     
     def capture_frame(self, format: str) -> np.ndarray:
         """
