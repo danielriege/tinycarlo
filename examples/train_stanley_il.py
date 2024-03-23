@@ -11,13 +11,13 @@ from tqdm import trange
 from examples.models.tinycar_net import TinycarCombo
 from examples.benchmark_tinycar_net import pre_obs, evaluate
 
-LEARNING_RATE = 1e-3
-BATCH_SIZE = 32
-STEPS = 6000
+LEARNING_RATE = 1e-4
+BATCH_SIZE = 64
+STEPS = 1000
 
 ### Data Collection
 STEP_SIZE = 2000 # number of steps to take per episode
-BUFFER_SIZE = 60000
+BUFFER_SIZE = 60_000
 BUFFER_SAVEFILE = "/tmp/stanley_training_data.npz" if len(sys.argv) != 2 else sys.argv[1]
 MODEL_SAVEFILE = "/tmp/tinycar_combo.safetensors" if len(sys.argv) != 3 else sys.argv[2]
 PLOT = getenv("PLOT")
@@ -34,6 +34,13 @@ def create_loss_graph(loss: List[float]):
     plt.savefig("/tmp/stanley_loss.png")
 
 def sample_episode(Xn, Mn, Yn, old_steps, env, maneuver = 0, seed = 0):
+    # random camera params
+    pitch = np.random.randint(0, 25)
+    fov = np.random.randint(80, 120)
+    env.unwrapped.camera.orientation[0] = pitch
+    env.unwrapped.camera.fov = fov
+    env.unwrapped.camera.update_params()
+
     obs, info = env.reset(seed=seed)
     steps = 0
     for i in range(STEP_SIZE*5):
@@ -63,12 +70,12 @@ if __name__ == "__main__":
 
     tinycar_combo = TinycarCombo(obs.shape)
     opt = nn.optim.Adam(nn.state.get_parameters(tinycar_combo), lr=LEARNING_RATE)
-    print(f"using Device: {Device.DEFAULT} | model params: {sum([p.numel() for p in nn.state.get_parameters(tinycar_combo)]):,}")
+    print(f"using Device: {Device.DEFAULT} | encoder params: {sum([p.numel() for p in nn.state.get_parameters(tinycar_combo.encoder)]):,} | actor params: {sum([p.numel() for p in nn.state.get_parameters(tinycar_combo.actor)]):,}")
     # check if training data exists in /tmp
     if os.path.exists(BUFFER_SAVEFILE):
         print(f"Loading training data from disk: {BUFFER_SAVEFILE}")
         data = np.load(BUFFER_SAVEFILE)
-        Xn, Mn, Yn = data["Xn"], data["Mn"], data["Yn"]
+        Xn, Mn, Yn = data["Xn"].astype(np.float32), data["Mn"].astype(np.float32), data["Yn"].astype(np.float32)
         steps = Xn.shape[0]
     else:
         print("Collecting training data:")
@@ -83,8 +90,7 @@ if __name__ == "__main__":
         # save to disk
         Xn, Mn, Yn = Xn[:steps], Mn[:steps], Yn[:steps]
         np.savez_compressed(BUFFER_SAVEFILE, Xn=Xn, Mn=Mn, Yn=Yn)
-    Xn, Mn, Yn = Xn.astype(np.float32), Mn.astype(np.float32), Yn.astype(np.float32)
-    print(f"Training data memory used: {sum([x.size * x.itemsize for x in [Xn, Mn, Yn]])/1e9:.2f} GB")
+    print(f"Training data memory used: {sum([x.size * x.itemsize for x in [Xn, Mn, Yn]])/1e9:.2f} GB | type: {Xn.dtype} | shape: {Xn.shape}")
     print("Training:")
 
     @TinyJit
