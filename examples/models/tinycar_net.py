@@ -1,103 +1,100 @@
-from tinygrad.tensor import Tensor
-from tinygrad.helpers import fetch
-import tinygrad.nn as nn
-from typing import Union, Dict, Tuple
-    
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Tuple, Dict
+import os
+
 model_urls: Dict[Tuple[int,int,int], str] = {   
-    (5,64,160): "http://riege.com.de/tinycarlo/tinycar_combo_5_64_160.safetensors",
+    (5,64,160): "http://riege.com.de/tinycarlo/tinycar_combo_5_64_160.pt",
 }
 
-class ConvBlock:
+DEFAULT_M_DIM = 4
+DEFAULT_A_DIM = 1
+
+class ConvBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
+        super(ConvBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, 3, 2, 1)
         self.bn1 = nn.BatchNorm2d(out_channels)
         
-    def forward(self, x: Tensor) -> Tensor:
-        return self.bn1(self.conv1(x)).relu().dropout(0.2)
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        return F.relu(self.bn1(self.conv1(x)))
     
-    def __call__(self, x: Tensor) -> Tensor:
-        return self.forward(x)
-
-class TinycarEncoder:
+class TinycarEncoder(nn.Module):
     FEATURE_VEC_SIZE = 256
 
     def __init__(self, image_dim: Tuple[int, int, int]):
-        """
-        image_dim: (channels, height, width) of the input image
-        """
+        super(TinycarEncoder, self).__init__()
         self.image_dim = image_dim
         self.filters = [24, 36, 48, 64, 64]
-        self.convs = [ConvBlock(image_dim[0] if i == 0 else self.filters[i-1], fts) for i,fts in enumerate(self.filters)]
+        self.convs = nn.ModuleList([ConvBlock(image_dim[0] if i == 0 else self.filters[i-1], fts) for i, fts in enumerate(self.filters)])
         self.fc1 = nn.Linear(self.__calculate_conv_out_size(), self.FEATURE_VEC_SIZE)
 
-    def forward(self, x: Tensor) -> Tensor:
-        out = x.sequential(self.convs).flatten(start_dim=1)
-        return self.fc1(out).relu()
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        out = x
+        for conv in self.convs:
+            out = conv(out)
+        out = out.flatten(start_dim=1)
+        return F.relu(self.fc1(out))
     
     def __calculate_conv_out_size(self) -> int:
-        x = Tensor.zeros(*self.image_dim).unsqueeze(0)
-        out = x.sequential(self.convs).flatten(start_dim=1)
+        x = torch.zeros(*self.image_dim).unsqueeze(0)
+        out = x
+        for conv in self.convs:
+            out = conv(out)
+        out = out.flatten(start_dim=1)
         return out.shape[1]
     
-    def __call__(self, x: Tensor) -> Tensor:
-        return self.forward(x)
-    
-class TinycarActor:
-    def __init__(self, in_features: int = TinycarEncoder.FEATURE_VEC_SIZE, maneuver_dim: int = 4, action_dim: int = 1):
+class TinycarActor(nn.Module):
+    def __init__(self, in_features: int = TinycarEncoder.FEATURE_VEC_SIZE, maneuver_dim: int = DEFAULT_M_DIM, action_dim: int = DEFAULT_A_DIM):
+        super(TinycarActor, self).__init__()
         self.fcm = nn.Linear(maneuver_dim, in_features)
         self.fc1 = nn.Linear(in_features, 100)
         self.fc2 = nn.Linear(100, 50)
         self.fc3 = nn.Linear(50, 10)
         self.fc4 = nn.Linear(10, action_dim)
 
-    def forward(self, f: Tensor, m: Tensor) -> Tensor:
-        attention_weights = self.fcm(m).softmax(axis=1)
+    def forward(self, f: torch.tensor, m: torch.tensor) -> torch.tensor:
+        attention_weights = F.sigmoid(self.fcm(m))
         out = f * attention_weights
-        out = self.fc1(out).relu().dropout(0.2)
-        out = self.fc2(out).relu().dropout(0.2)
-        out = self.fc3(out).relu().dropout(0.2)
-        return self.fc4(out).tanh()
+        out = F.relu(self.fc1(out))
+        out = F.relu(self.fc2(out))
+        out = F.relu(self.fc3(out))
+        return F.tanh(self.fc4(out))
     
-    def __call__(self, f: Tensor, m: Tensor) -> Tensor:
-        return self.forward(f, m)
-    
-class TinycarCombo:
-    def __init__(self, image_dim: Tuple[int, int, int], maneuver_dim: int = 4, action_dim: int = 1):
-        """
-        image_dim: (channels, height, width) of the input image
-        maneuver_dim: the number of maneuvers
-        """
+class TinycarCombo(nn.Module):
+    def __init__(self, image_dim: Tuple[int, int, int], maneuver_dim: int = DEFAULT_M_DIM, action_dim: int = DEFAULT_A_DIM):
+        super(TinycarCombo, self).__init__()
         self.image_dim, self.m_dim, self.a_dim = image_dim, maneuver_dim, action_dim
         self.encoder = TinycarEncoder(image_dim)
-        self.actor = TinycarActor(maneuver_dim = maneuver_dim, action_dim = action_dim)
+        self.actor = TinycarActor(maneuver_dim=maneuver_dim, action_dim=action_dim)
 
-    def forward(self, x: Tensor, m: Tensor) -> Tensor:
+    def forward(self, x: torch.tensor, m: torch.tensor) -> torch.tensor:
         out = self.encoder(x)
         return self.actor(out, m)
     
-    def __call__(self, image: Tensor, maneuver: Tensor) -> Tensor:
-        return self.forward(image, maneuver)
-    
     def load_pretrained(self) -> bool: 
-        if self.image_dim in model_urls and self.m_dim == 4 and self.a_dim == 1:
-            nn.state.load_state_dict(self, nn.state.safe_load(fetch(model_urls[self.image_dim])), strict=False, consume=True)
+        if self.image_dim in model_urls and self.m_dim == DEFAULT_M_DIM and self.a_dim == DEFAULT_A_DIM:
+            model_url = model_urls[self.image_dim]
+            cached_file = os.path.join("/tmp", os.path.basename(model_url))
+            if not os.path.exists(cached_file):
+                torch.hub.download_url_to_file(model_url, cached_file)
+            self.load_state_dict(torch.load(cached_file))
             return True
         print(f"No pretrained weights found for image_dim: {self.image_dim}, maneuver_dim: {self.m_dim}, action_dim: {self.a_dim}")
         return False
 
-class TinycarCritic:
-    def __init__(self, maneuver_dim: int = 4, action_dim: int = 1):
-        self.fca = nn.Linear(action_dim, 64)
-        self.fcm = nn.Linear(maneuver_dim, 64)
+class TinycarCritic(nn.Module):
+    def __init__(self, maneuver_dim: int = DEFAULT_M_DIM, action_dim: int = DEFAULT_A_DIM):
+        super(TinycarCritic, self).__init__()
+        self.fca = nn.Linear(action_dim, TinycarEncoder.FEATURE_VEC_SIZE)
+        self.fcm = nn.Linear(maneuver_dim, TinycarEncoder.FEATURE_VEC_SIZE)
         self.fc1 = nn.Linear(TinycarEncoder.FEATURE_VEC_SIZE*3, 512)
         self.fc2 = nn.Linear(512, 1)
     
-    def forward(self, f: Tensor, m: Tensor, a: Tensor):
-        m = self.fcm(m).relu()
-        a = self.fca(a).relu()
-        out = f.cat(m, dim=1).cat(a, dim=1)
-        out = self.fc1(out).relu()
+    def forward(self, f: torch.tensor, m: torch.tensor, a: torch.tensor) -> torch.tensor:
+        m = F.relu(self.fcm(m))
+        a = F.relu(self.fca(a))
+        out = torch.cat([f, m, a], dim=1)
+        out = F.relu(self.fc1(out))
         return self.fc2(out)
-    
-    def __call__(self, state: Tensor, maneuver: Tensor = 4, action: Tensor = 1) -> Tensor:
-        return self.forward(state, maneuver, action)

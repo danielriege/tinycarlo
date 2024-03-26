@@ -1,15 +1,18 @@
 from typing import List, Tuple
-from tinygrad import Tensor
+import torch
+import torch.nn.functional as F
 import numpy as np
 
 #####################
 ##### Only utils for reinforcement learning examples
 if __name__ == "__main__": print("This script is not meant to be run directly. Run the examples instead.")
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class Replaybuffer:
     def __init__(self, size: int, batch_size: int, obs_shape: List[int], maneuver_dim: int, action_dim: int) -> None:
         self.size, self.batch_size, self.obs_shape, self.maneuver_dim, self.action_dim = size, batch_size, obs_shape, maneuver_dim, action_dim
-        self.X, self.M, self.A, self.R, self.X1 = np.zeros((size, *obs_shape), dtype=np.float32), np.zeros( (size,), dtype=np.float32), np.zeros((size, self.action_dim), dtype=np.float32), np.zeros((size, 1), dtype=np.float32), np.zeros( (size, *obs_shape), dtype=np.float32)
+        self.X, self.M, self.A, self.R, self.X1 = np.zeros((size, *obs_shape), dtype=np.float32), np.zeros( (size,), dtype=np.int64), np.zeros((size, self.action_dim), dtype=np.float32), np.zeros((size, 1), dtype=np.float32), np.zeros( (size, *obs_shape), dtype=np.float32)
         self.rp_sz = 0
 
     def add(self, x, m, a, r, x1) -> None:
@@ -17,10 +20,10 @@ class Replaybuffer:
         self.X[rp_idx], self.M[rp_idx], self.A[rp_idx], self.R[rp_idx], self.X1[rp_idx] = x, m, a, r, x1
         self.rp_sz = min(self.rp_sz + 1, self.size)
 
-    def sample(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+    def sample(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         assert self.rp_sz >= self.batch_size
         x, m, a, r, x1, m1 = self[np.random.randint(0, self.rp_sz, self.batch_size)]
-        return Tensor(x), Tensor(m).one_hot(self.maneuver_dim), Tensor(a), Tensor(r), Tensor(x1), Tensor(m1).one_hot(self.maneuver_dim)
+        return torch.from_numpy(x).to(device), F.one_hot(torch.from_numpy(m), self.maneuver_dim).float().to(device), torch.from_numpy(a).to(device), torch.from_numpy(r).to(device), torch.from_numpy(x1).to(device), F.one_hot(torch.from_numpy(m1), self.maneuver_dim).float().to(device)
 
     def __getitem__(self, indices):
         return self.X[indices], self.M[indices], self.A[indices], self.R[indices], self.X1[indices], self.M[indices]
