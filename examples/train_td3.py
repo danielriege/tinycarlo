@@ -11,10 +11,10 @@ import time
 
 from tinycarlo.wrapper.reward import CTELinearRewardWrapper, LanelineSparseRewardWrapper
 from tinycarlo.wrapper.termination import LanelineCrossingTerminationWrapper, CTETerminationWrapper
-from examples.models.tinycar_net import TinycarActor, TinycarCritic, TinycarCombo, TinycarEncoder
+from examples.models.tinycar_net import TinycarActorLSTM, TinycarCriticLSTM, TinycarCombo, TinycarEncoder
 from examples.benchmark_tinycar_net import pre_obs, evaluate
 from tinycarlo.helper import getenv
-from examples.rl_utils import avg_w, create_action_loss_graph, create_critic_loss_graph, create_ep_rew_graph, Replaybuffer
+from examples.rl_utils import avg_w, create_action_loss_graph, create_critic_loss_graph, create_ep_rew_graph, Replaybuffer, ReplaybufferTemporal
 
 # *** hyperparameters ***
 BATCH_SIZE = 64
@@ -34,6 +34,8 @@ NOISE_THETA = 0.2
 NOISE_MEAN = 0.0
 NOISE_SIGMA = 0.2
 
+SEQ_LEN = 5
+
 MODEL_SAVEFILE = "/tmp/tinycar_combo_td3.pt"
 PLOT = getenv("PLOT")
 
@@ -52,12 +54,12 @@ if __name__ == "__main__":
     tinycar_combo = TinycarCombo(obs.shape)
     tinycar_combo.load_pretrained()
     encoder = tinycar_combo.encoder
-    actor = tinycar_combo.actor  # pre trained actor
-    actor_target = TinycarActor()
-    critic1 = TinycarCritic()
-    critic2 = TinycarCritic()
-    critic_target1 = TinycarCritic()
-    critic_target2 = TinycarCritic()
+    actor = TinycarActorLSTM()
+    actor_target = TinycarActorLSTM()
+    critic1 = TinycarCriticLSTM()
+    critic2 = TinycarCriticLSTM()
+    critic_target1 = TinycarCriticLSTM()
+    critic_target2 = TinycarCriticLSTM()
 
     encoder.to(device)
     actor.to(device)
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     opt_critic1 = torch.optim.Adam(critic1.parameters(), lr=LEARNING_RATE_CRITIC)
     opt_critic2 = torch.optim.Adam(critic2.parameters(), lr=LEARNING_RATE_CRITIC)
 
-    replay_buffer = Replaybuffer(REPLAY_BUFFER_SIZE, BATCH_SIZE, (TinycarEncoder.FEATURE_VEC_SIZE,), maneuver_dim, action_dim)
+    replay_buffer = ReplaybufferTemporal(REPLAY_BUFFER_SIZE, BATCH_SIZE, (TinycarEncoder.FEATURE_VEC_SIZE,), maneuver_dim, action_dim, SEQ_LEN)
 
     noise = torch.zeros(action_dim).to(device)
     exploration_rate = 1.0
@@ -127,7 +129,7 @@ if __name__ == "__main__":
         global noise, exploration_rate
         with torch.no_grad():
             noise += NOISE_THETA * (NOISE_MEAN - noise) + NOISE_SIGMA * torch.randn(action_dim).to(device) # Ornstein-Uhlenbeck process
-            action = (actor(feature_vec, maneuver.unsqueeze(0))[0] + noise * exploration_rate).clamp(-1, 1).cpu()
+            action = (actor(feature_vec.unsqueeze(0), maneuver.unsqueeze(0))[0] + noise * exploration_rate).clamp(-1, 1).cpu()
         return action
     
     def get_feature_vec(obs: torch.Tensor) -> torch.Tensor:
@@ -138,19 +140,22 @@ if __name__ == "__main__":
     st, steps = time.perf_counter(), 0
     rews = []
     c1_loss, c2_loss, a_loss = [],[],[]
+    feature_vec_queue = torch.zeros(SEQ_LEN+1, TinycarEncoder.FEATURE_VEC_SIZE).to(device)
     for episode_number in (t := trange(EPISODES)):
-        feature_vec = get_feature_vec(torch.from_numpy(pre_obs(env.reset()[0])).to(device)) # initial feature vec
+        feature_vec_queue = torch.roll(feature_vec_queue, 1, 0)
+        feature_vec_queue[0] = get_feature_vec(torch.from_numpy(pre_obs(env.reset()[0])).to(device))
+
         noise = torch.zeros(action_dim).to(device) # reset the noise
         maneuver = np.random.randint(0, 3)
         #exploration_rate = 1 - (episode_number / EPISODES)
         ep_rew = 0
         for ep_step in range(MAX_STEPS):
             m = F.one_hot(torch.tensor(maneuver), tinycar_combo.m_dim).float().to(device)
-            act = get_action(feature_vec, m).item()
+            act = get_action(feature_vec_queue[:-1,:], m).item()
             obs, rew, terminated, truncated, _ = env.step({"car_control": [SPEED, act], "maneuver": maneuver if maneuver != 2 else 3})
-            feature_vec_next = get_feature_vec(torch.from_numpy(pre_obs(obs)).to(device))
-            replay_buffer.add(feature_vec.cpu().numpy(), maneuver, act, rew, feature_vec_next.cpu().numpy())
-            feature_vec = feature_vec_next
+            feature_vec_queue = torch.roll(feature_vec_queue, 1, 0)
+            feature_vec_queue[0] = get_feature_vec(torch.from_numpy(pre_obs(obs)).to(device))
+            replay_buffer.add(feature_vec_queue[1:,:].cpu().numpy(), maneuver, act, rew, feature_vec_queue[:-1,:].cpu().numpy())
             ep_rew += rew
             steps += 1
             if steps >= BATCH_SIZE:
