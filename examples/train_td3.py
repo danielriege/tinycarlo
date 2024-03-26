@@ -37,7 +37,7 @@ NOISE_SIGMA = 0.2
 MODEL_SAVEFILE = "/tmp/tinycar_combo_td3.pt"
 PLOT = getenv("PLOT")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 if __name__ == "__main__":
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "./config_simple_layout.yaml")
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     obs = pre_obs(env.reset()[0])  # seed the environment and get obs shape
     tinycar_combo = TinycarCombo(obs.shape)
-    tinycar_combo.load_pretrained()
+    tinycar_combo.load_pretrained(device)
     encoder = tinycar_combo.encoder
     actor = tinycar_combo.actor  # pre trained actor
     actor_target = TinycarActor()

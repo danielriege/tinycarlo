@@ -7,7 +7,7 @@ import numpy as np
 ##### Only utils for reinforcement learning examples
 if __name__ == "__main__": print("This script is not meant to be run directly. Run the examples instead.")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 class Replaybuffer:
     def __init__(self, size: int, batch_size: int, obs_shape: List[int], maneuver_dim: int, action_dim: int) -> None:
